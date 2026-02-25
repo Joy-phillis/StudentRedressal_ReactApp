@@ -219,11 +219,11 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>Rajesh Singh</Text>
-              <Text style={styles.profileEmail}>rajesh.singh@student.edu</Text>
+              <Text style={styles.profileName}>{profile.name}</Text>
+              <Text style={styles.profileEmail}>{profile.email}</Text>
               <View style={styles.regNoContainer}>
                 <Text style={styles.regNoLabel}>Registration: </Text>
-                <Text style={styles.regNoValue}>2023001</Text>
+                <Text style={styles.regNoValue}>{profile.registration}</Text>
               </View>
             </View>
             <TouchableOpacity
