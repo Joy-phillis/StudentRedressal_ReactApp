@@ -6,23 +6,8 @@ import { View, Text } from 'react-native';
 
 import StudentHome from '../screens/student/StudentHome';
 import ComplaintsScreen from '../screens/student/ComplaintsScreen';
-
-// Optional placeholder screens
-function NotificationsScreen() {
-  return (
-    <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}>
-      <Text style={{ fontSize:18, fontWeight:'600', color:'#0F3057' }}>Notifications</Text>
-    </View>
-  );
-}
-
-function SettingsScreen() {
-  return (
-    <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}>
-      <Text style={{ fontSize:18, fontWeight:'600', color:'#0F3057' }}>Settings</Text>
-    </View>
-  );
-}
+import NotificationsScreen from '../screens/student/NotificationsScreen';
+import SettingsScreen from '../screens/student/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 

@@ -10,18 +10,44 @@ import {
   FlatList,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring, 
+  withTiming,
+  interpolate,
+  Extrapolate,
+  FadeInDown,
+  FadeInUp,
+} from 'react-native-reanimated';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+const COLORS = {
+  primary: '#2E5090',
+  secondary: '#FF6B6B',
+  accent: '#4CAF50',
+  pending: '#FFA500',
+  resolved: '#4CAF50',
+  inProgress: '#2196F3',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  text: '#1A2332',
+  textLight: '#6B7280',
+  border: '#E5E7EB',
+  shadow: '#000000',
+  error: '#EF4444',
+};
 
 const dummyHistory = [
-  { id: '1', reg: '2023001', name: 'Alice Johnson', course: 'BSc CS', status: 'Pending', date: '2026-02-20' },
-  { id: '2', reg: '2023002', name: 'Bob Smith', course: 'BCom', status: 'Resolved', date: '2026-02-18' },
-  { id: '3', reg: '2023003', name: 'Carol Lee', course: 'BSc Physics', status: 'In-Progress', date: '2026-02-15' },
+  { id: '1', reg: '2023001', title: 'Library Noise Issue', name: 'Alice Johnson', course: 'BSc CS', status: 'Pending', date: '2026-02-20', category: 'Library' },
+  { id: '2', reg: '2023002', title: 'Cafeteria Food Quality', name: 'Bob Smith', course: 'BCom', status: 'Resolved', date: '2026-02-18', category: 'Cafeteria' },
+  { id: '3', reg: '2023003', title: 'Lab Equipment Malfunction', name: 'Carol Lee', course: 'BSc Physics', status: 'In-Progress', date: '2026-02-15', category: 'Lab' },
 ];
 
 export default function ComplaintsScreen() {
@@ -39,22 +65,43 @@ export default function ComplaintsScreen() {
   const [errors, setErrors] = useState<any>({});
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState(dummyHistory);
+  const [showForm, setShowForm] = useState(true);
 
   // Animations
-  const formScale = useSharedValue(0.8);
+  const headerScale = useSharedValue(0.8);
+  const headerOpacity = useSharedValue(0);
+  const formTranslate = useSharedValue(100);
+  const formOpacity = useSharedValue(0);
   const historyTranslate = useSharedValue(50);
+  const historyOpacity = useSharedValue(0);
+  const submitScale = useSharedValue(1);
 
   useEffect(() => {
-    formScale.value = withSpring(1, { damping: 12, stiffness: 90 });
-    historyTranslate.value = withSpring(0, { damping: 12, stiffness: 90 });
+    headerScale.value = withSpring(1, { damping: 13, stiffness: 100 });
+    headerOpacity.value = withTiming(1, { duration: 400 });
+    formTranslate.value = withTiming(0, { duration: 500 });
+    formOpacity.value = withTiming(1, { duration: 500 });
+    historyTranslate.value = withTiming(0, { duration: 600 });
+    historyOpacity.value = withTiming(1, { duration: 600 });
   }, []);
 
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: headerScale.value }],
+    opacity: headerOpacity.value,
+  }));
+
   const formStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: formScale.value }],
+    transform: [{ translateY: formTranslate.value }],
+    opacity: formOpacity.value,
   }));
 
   const historyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: historyTranslate.value }],
+    opacity: historyOpacity.value,
+  }));
+
+  const submitStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: submitScale.value }],
   }));
 
   // Validation
@@ -71,18 +118,27 @@ export default function ComplaintsScreen() {
 
   const handleSubmit = () => {
     if (!validateForm()) return;
+    
     setSubmitting(true);
+    submitScale.value = withSpring(0.95, { damping: 12, stiffness: 100 });
 
     setTimeout(() => {
+      submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
       setSubmitting(false);
-      Alert.alert('Success', 'Complaint submitted successfully!');
+      Alert.alert(
+        'Success ✓',
+        'Your complaint has been submitted successfully!',
+        [{ text: 'OK' }]
+      );
       const newComplaint = {
         id: (history.length + 1).toString(),
         reg: regNo,
+        title: title,
         name: fullName,
         course,
         status: 'Pending',
         date: new Date().toISOString().slice(0, 10),
+        category: category,
       };
       setHistory([newComplaint, ...history]);
       // Reset form
@@ -98,220 +154,617 @@ export default function ComplaintsScreen() {
     }, 1000);
   };
 
-  const renderHistoryCard = ({ item }: any) => {
-    let bgColor = '#1E5F9E';
-    if (item.status === 'Pending') bgColor = '#FF9800';
-    if (item.status === 'Resolved') bgColor = '#4CAF50';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Pending':
+        return COLORS.pending;
+      case 'Resolved':
+        return COLORS.resolved;
+      case 'In-Progress':
+        return COLORS.inProgress;
+      default:
+        return COLORS.primary;
+    }
+  };
+
+  const getCategoryIcon = (cat: string) => {
+    switch (cat) {
+      case 'Library':
+        return 'book';
+      case 'Cafeteria':
+        return 'utensils';
+      case 'Lab':
+        return 'flask';
+      case 'Hostel':
+        return 'bed';
+      case 'Transport':
+        return 'bus';
+      default:
+        return 'question';
+    }
+  };
+
+  const renderHistoryCard = ({ item, index }: any) => {
+    const bgColor = getStatusColor(item.status);
+    
     return (
-      <View style={[styles.historyCard, { backgroundColor: bgColor }]}>
-        <Text style={styles.historyTitle}>{item.title}</Text>
-        <Text style={styles.historyDetails}>{item.name} | {item.course}</Text>
-        <Text style={styles.historyStatus}>{item.status}</Text>
-        <Text style={styles.historyDate}>{item.date}</Text>
-      </View>
+      <Animated.View
+        entering={FadeInUp.delay(300 + index * 100).duration(500)}
+        style={styles.historyCardWrapper}
+      >
+        <View style={[styles.historyCard, { borderLeftColor: bgColor }]}>
+          <View style={styles.historyHeader}>
+            <View style={[styles.categoryBadge, { backgroundColor: bgColor + '20' }]}>
+              <FontAwesome5 name={getCategoryIcon(item.category)} size={14} color={bgColor} />
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: bgColor }]}>
+              <Text style={styles.statusBadgeText}>{item.status}</Text>
+            </View>
+          </View>
+          <Text style={styles.historyTitle} numberOfLines={2}>{item.title}</Text>
+          <Text style={styles.historyMeta}>
+            {item.name} • {item.course}
+          </Text>
+          <Text style={styles.historyDate}>
+            <Ionicons name="calendar-outline" size={12} color={COLORS.textLight} /> {item.date}
+          </Text>
+        </View>
+      </Animated.View>
     );
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 120 : 100 }}
     >
-      {/* Header with Back */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F3057" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Campus Complaint Form</Text>
-        <Text style={styles.headerSubtitle}>Submit your complaint to get quick resolution</Text>
-      </View>
-
-      {/* Form */}
-      <Animated.View style={[formStyle]}>
-        {/* Registration Number */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="card-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <TextInput placeholder="Registration Number" value={regNo} onChangeText={setRegNo} style={styles.input} />
-        </View>
-        {errors.regNo && <Text style={styles.errorText}>{errors.regNo}</Text>}
-
-        {/* Full Name */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="person-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <TextInput placeholder="Full Name" value={fullName} onChangeText={setFullName} style={styles.input} />
-        </View>
-        {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-
-        {/* Gender Picker */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="male-female-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <Picker
-            selectedValue={gender}
-            style={styles.picker}
-            onValueChange={(itemValue: string) => setGender(itemValue)}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 120 : 100 }}
+      >
+        {/* Header */}
+        <Animated.View style={[styles.headerContainer, headerStyle]}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            style={styles.backButton}
+            activeOpacity={0.7}
           >
-            <Picker.Item label="Male" value="Male" />
-            <Picker.Item label="Female" value="Female" />
-            <Picker.Item label="Other" value="Other" />
-          </Picker>
-        </View>
+            <View style={styles.backButtonBg}>
+              <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Submit a Complaint</Text>
+            <Text style={styles.headerSubtitle}>Help us improve by reporting issues</Text>
+          </View>
+        </Animated.View>
 
-        {/* Year Picker */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="school-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <Picker
-            selectedValue={year}
-            style={styles.picker}
-            onValueChange={(itemValue: string) => setYear(itemValue)}
-          >
-            <Picker.Item label="1st Year" value="1" />
-            <Picker.Item label="2nd Year" value="2" />
-            <Picker.Item label="3rd Year" value="3" />
-            <Picker.Item label="4th Year" value="4" />
-          </Picker>
-        </View>
+        {/* Form Section */}
+        <Animated.View style={[formStyle]}>
+          <View style={styles.formContainer}>
+            {/* Personal Information Section */}
+            <View style={styles.sectionWrapper}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="person-circle-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.sectionTitle}>Personal Information</Text>
+              </View>
+              
+              {/* Registration Number */}
+              <View>
+                <Text style={styles.label}>Registration Number *</Text>
+                <View style={[
+                  styles.inputContainer,
+                  errors.regNo && styles.inputError
+                ]}>
+                  <Ionicons name="card-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Enter your registration number"
+                    value={regNo}
+                    onChangeText={setRegNo}
+                    style={styles.input}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                {errors.regNo && (
+                  <Text style={styles.errorText}>
+                    <Ionicons name="alert-circle" size={12} color={COLORS.error} /> {errors.regNo}
+                  </Text>
+                )}
+              </View>
 
-        {/* Course */}
-        <View style={styles.inputContainer}>
-          <MaterialCommunityIcons name="book-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <TextInput placeholder="Course" value={course} onChangeText={setCourse} style={styles.input} />
-        </View>
-        {errors.course && <Text style={styles.errorText}>{errors.course}</Text>}
+              {/* Full Name */}
+              <View>
+                <Text style={styles.label}>Full Name *</Text>
+                <View style={[
+                  styles.inputContainer,
+                  errors.fullName && styles.inputError
+                ]}>
+                  <Ionicons name="person-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Enter your full name"
+                    value={fullName}
+                    onChangeText={setFullName}
+                    style={styles.input}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                {errors.fullName && (
+                  <Text style={styles.errorText}>
+                    <Ionicons name="alert-circle" size={12} color={COLORS.error} /> {errors.fullName}
+                  </Text>
+                )}
+              </View>
 
-        {/* Complaint Title */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="pencil-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <TextInput placeholder="Complaint Title" value={title} onChangeText={setTitle} style={styles.input} />
-        </View>
-        {errors.title && <Text style={styles.errorText}>{errors.title}</Text>}
+              {/* Gender and Year Row */}
+              <View style={styles.twoColumnRow}>
+                <View style={styles.column}>
+                  <Text style={styles.label}>Gender</Text>
+                  <View style={styles.pickerContainer}>
+                    <Ionicons name="male-female-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                    <Picker
+                      selectedValue={gender}
+                      style={styles.picker}
+                      onValueChange={setGender}
+                    >
+                      <Picker.Item label="Male" value="Male" />
+                      <Picker.Item label="Female" value="Female" />
+                      <Picker.Item label="Other" value="Other" />
+                    </Picker>
+                  </View>
+                </View>
+                <View style={styles.column}>
+                  <Text style={styles.label}>Year</Text>
+                  <View style={styles.pickerContainer}>
+                    <Ionicons name="school-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                    <Picker
+                      selectedValue={year}
+                      style={styles.picker}
+                      onValueChange={setYear}
+                    >
+                      <Picker.Item label="1st Year" value="1" />
+                      <Picker.Item label="2nd Year" value="2" />
+                      <Picker.Item label="3rd Year" value="3" />
+                      <Picker.Item label="4th Year" value="4" />
+                    </Picker>
+                  </View>
+                </View>
+              </View>
 
-        {/* Category Picker */}
-        <View style={styles.inputContainer}>
-          <MaterialCommunityIcons name="format-list-bulleted" size={20} color="#0F3057" style={styles.inputIcon} />
-          <Picker
-            selectedValue={category}
-            style={styles.picker}
-            onValueChange={(itemValue: string) => setCategory(itemValue)}
-          >
-            <Picker.Item label="Library" value="Library" />
-            <Picker.Item label="Cafeteria" value="Cafeteria" />
-            <Picker.Item label="Lab" value="Lab" />
-            <Picker.Item label="Hostel" value="Hostel" />
-            <Picker.Item label="Transport" value="Transport" />
-          </Picker>
-        </View>
+              {/* Course */}
+              <View>
+                <Text style={styles.label}>Course *</Text>
+                <View style={[
+                  styles.inputContainer,
+                  errors.course && styles.inputError
+                ]}>
+                  <MaterialCommunityIcons name="book-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Enter your course"
+                    value={course}
+                    onChangeText={setCourse}
+                    style={styles.input}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                {errors.course && (
+                  <Text style={styles.errorText}>
+                    <Ionicons name="alert-circle" size={12} color={COLORS.error} /> {errors.course}
+                  </Text>
+                )}
+              </View>
+            </View>
 
-        {/* Description */}
-        <View style={[styles.inputContainer, { height: 120, alignItems: 'flex-start' }]}>
-          <Ionicons name="document-text-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <TextInput
-            placeholder="Detailed Description"
-            value={description}
-            onChangeText={setDescription}
-            style={[styles.input, { height: 120, textAlignVertical: 'top' }]}
-            multiline
-          />
-        </View>
-        {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
+            {/* Complaint Details Section */}
+            <View style={styles.sectionWrapper}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="alert-circle-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.sectionTitle}>Complaint Details</Text>
+              </View>
 
-        {/* Urgency Picker */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="alert-circle-outline" size={20} color="#0F3057" style={styles.inputIcon} />
-          <Picker
-            selectedValue={urgency}
-            style={styles.picker}
-            onValueChange={(itemValue: string) => setUrgency(itemValue)}
-          >
-            <Picker.Item label="Normal" value="Normal" />
-            <Picker.Item label="High" value="High" />
-            <Picker.Item label="Critical" value="Critical" />
-          </Picker>
-        </View>
+              {/* Complaint Title */}
+              <View>
+                <Text style={styles.label}>Complaint Title *</Text>
+                <View style={[
+                  styles.inputContainer,
+                  errors.title && styles.inputError
+                ]}>
+                  <Ionicons name="pencil-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Brief title of your complaint"
+                    value={title}
+                    onChangeText={setTitle}
+                    style={styles.input}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                {errors.title && (
+                  <Text style={styles.errorText}>
+                    <Ionicons name="alert-circle" size={12} color={COLORS.error} /> {errors.title}
+                  </Text>
+                )}
+              </View>
 
-        {/* Submit */}
-        <TouchableOpacity
-          style={[styles.submitButton, submitting && { backgroundColor: '#777' }]}
-          onPress={handleSubmit}
-          disabled={submitting}
-        >
-          <Ionicons name="send-outline" size={22} color="#fff" />
-          <Text style={styles.submitText}>{submitting ? 'Submitting...' : 'Submit Complaint'}</Text>
-        </TouchableOpacity>
-      </Animated.View>
+              {/* Category and Urgency Row */}
+              <View style={styles.twoColumnRow}>
+                <View style={styles.column}>
+                  <Text style={styles.label}>Category</Text>
+                  <View style={styles.pickerContainer}>
+                    <MaterialCommunityIcons name="format-list-bulleted" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                    <Picker
+                      selectedValue={category}
+                      style={styles.picker}
+                      onValueChange={setCategory}
+                    >
+                      <Picker.Item label="Library" value="Library" />
+                      <Picker.Item label="Cafeteria" value="Cafeteria" />
+                      <Picker.Item label="Lab" value="Lab" />
+                      <Picker.Item label="Hostel" value="Hostel" />
+                      <Picker.Item label="Transport" value="Transport" />
+                    </Picker>
+                  </View>
+                </View>
+                <View style={styles.column}>
+                  <Text style={styles.label}>Urgency</Text>
+                  <View style={styles.pickerContainer}>
+                    <Ionicons name="alert-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
+                    <Picker
+                      selectedValue={urgency}
+                      style={styles.picker}
+                      onValueChange={setUrgency}
+                    >
+                      <Picker.Item label="Normal" value="Normal" />
+                      <Picker.Item label="High" value="High" />
+                      <Picker.Item label="Critical" value="Critical" />
+                    </Picker>
+                  </View>
+                </View>
+              </View>
 
-      {/* Complaint History */}
-      <Text style={styles.sectionTitle}>Your Recent Complaints</Text>
-      <Animated.View style={[historyStyle]}>
-        <FlatList
-          data={history}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 5, paddingBottom: 20 }}
-          renderItem={renderHistoryCard}
-        />
-      </Animated.View>
-    </ScrollView>
+              {/* Description */}
+              <View>
+                <Text style={styles.label}>Detailed Description *</Text>
+                <View style={[
+                  styles.inputContainer,
+                  styles.descriptionContainer,
+                  errors.description && styles.inputError
+                ]}>
+                  <Ionicons name="document-text-outline" size={18} color={COLORS.primary} style={[styles.inputIcon, { marginTop: 12 }]} />
+                  <TextInput
+                    placeholder="Provide detailed information about your complaint..."
+                    value={description}
+                    onChangeText={setDescription}
+                    style={[styles.input, styles.descriptionInput]}
+                    multiline
+                    numberOfLines={4}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+                {errors.description && (
+                  <Text style={styles.errorText}>
+                    <Ionicons name="alert-circle" size={12} color={COLORS.error} /> {errors.description}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Submit Button */}
+            <Animated.View style={[submitStyle]}>
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  submitting && styles.submitButtonDisabled
+                ]}
+                onPress={handleSubmit}
+                disabled={submitting}
+                activeOpacity={0.8}
+              >
+                {submitting ? (
+                  <>
+                    <MaterialCommunityIcons name="loading" size={22} color="#fff" style={styles.loadingIcon} />
+                    <Text style={styles.submitText}>Submitting...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="send" size={22} color="#fff" />
+                    <Text style={styles.submitText}>Submit Complaint</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Animated.View>
+
+        {/* Recent Complaints Section */}
+        {history.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitleMain]}>Recent Complaints</Text>
+            <Animated.View style={[historyStyle]}>
+              <FlatList
+                data={history}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+                contentContainerStyle={styles.historyListContainer}
+                renderItem={renderHistoryCard}
+              />
+            </Animated.View>
+          </>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F7FB', paddingHorizontal: 20, paddingTop: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
 
-  headerContainer: { marginBottom: 20 },
-  backButton: { marginBottom: 10 },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#0F3057', marginBottom: 5 },
-  headerSubtitle: { fontSize: 14, color: '#777', marginBottom: 15 },
+  // Header Styles
+  headerContainer: {
+    marginBottom: 28,
+    marginTop: 8,
+  },
+  backButton: {
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  backButtonBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  headerContent: {
+    marginLeft: 0,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    color: COLORS.textLight,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
 
+  // Form Container
+  formContainer: {
+    paddingHorizontal: 4,
+  },
+
+  // Section Styles
+  sectionWrapper: {
+    marginBottom: 28,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginLeft: 10,
+    letterSpacing: 0.3,
+  },
+  sectionTitleMain: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 16,
+    marginTop: 8,
+    letterSpacing: 0.3,
+  },
+
+  // Label Styles
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+
+  // Input Container
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    marginBottom: 15,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 15, color: '#0F3057' },
+  inputError: {
+    borderColor: COLORS.error,
+    backgroundColor: COLORS.error + '08',
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '500',
+    padding: 0,
+  },
 
-  picker: { flex: 1, color: '#0F3057' },
+  // Picker Container
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  picker: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '500',
+  },
 
-  errorText: { color: '#FF3B30', marginBottom: 8, marginLeft: 5 },
+  // Description Input
+  descriptionContainer: {
+    height: 120,
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  descriptionInput: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
 
+  // Two Column Layout
+  twoColumnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  column: {
+    flex: 1,
+    marginRight: 12,
+  },
+
+  // Error Styles
+  errorText: {
+    color: COLORS.error,
+    fontSize: 12,
+    marginBottom: 12,
+    marginLeft: 2,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+
+  // Submit Button
   submitButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1E5F9E',
-    paddingVertical: 15,
-    borderRadius: 15,
-    marginBottom: 25,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    marginBottom: 32,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitText: {
+    color: COLORS.surface,
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.5,
+  },
+  loadingIcon: {
+    marginRight: 8,
+  },
 
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0F3057', marginBottom: 15 },
-
+  // History List
+  historyListContainer: {
+    paddingBottom: 20,
+  },
+  historyCardWrapper: {
+    marginBottom: 12,
+  },
   historyCard: {
-    width: width * 0.65,
-    padding: 15,
-    borderRadius: 15,
-    marginHorizontal: 7,
-    justifyContent: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 0,
+    borderLeftWidth: 4,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  historyTitle: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  historyDetails: { color: '#fff', fontSize: 12, marginTop: 2 },
-  historyStatus: { color: '#fff', marginTop: 5, fontWeight: '600' },
-  historyDate: { color: '#fff', fontSize: 11, marginTop: 3 },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  categoryBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusBadgeText: {
+    color: COLORS.surface,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  historyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  historyMeta: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    fontWeight: '500',
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  historyDate: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontWeight: '500',
+  },
 });

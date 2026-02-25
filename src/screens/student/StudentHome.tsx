@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ScrollView,
   FlatList,
   Dimensions,
+  Image,
+  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -17,6 +19,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { ProfileContext } from '../../context/ProfileContext';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +31,32 @@ const dummyComplaints = [
 ];
 
 export default function StudentHome({ navigation }: any) {
+  const { profile, setProfile } = useContext(ProfileContext);
+
+  const handleUploadPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please allow access to photo library');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setProfile({ image: uri });
+        Alert.alert('Success', 'Profile photo updated successfully!');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not open photo library');
+    }
+  };
   // Animations
   const headerOpacity = useSharedValue(0);
   const statsTranslate = useSharedValue(50);
@@ -84,16 +114,32 @@ export default function StudentHome({ navigation }: any) {
           <Text style={styles.subtitle}>Student Redressal Dashboard</Text>
         </View>
         <View style={styles.topIcons}>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity 
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Notifications')}
+          >
             <Ionicons name="notifications-outline" size={30} color="#0F3057" />
             <View style={styles.notificationBadge} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <Ionicons name="person-circle-outline" size={40} color="#0F3057" />
-          </TouchableOpacity>
+          <View style={styles.profileContainer}>
+            <TouchableOpacity
+              style={styles.profileButton}
+              onPress={() => navigation.navigate('Profile')}
+            >
+              {profile.image ? (
+                <Image source={{ uri: profile.image }} style={styles.profileAvatar} />
+              ) : (
+                <View style={styles.profileAvatar}>
+                  <Text style={styles.profileAvatarText}>{profile.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileCamera} onPress={handleUploadPhoto}>
+              <View style={styles.profileCameraBg}>
+                <Ionicons name="camera" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
 
@@ -180,6 +226,52 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: '#FF3B30',
+  },
+  profileButton: {
+    marginLeft: 15,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1E5F9E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F4F7FB',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  profileAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  profileContainer: {
+    marginLeft: 10,
+    position: 'relative',
+  },
+  profileCamera: {
+    position: 'absolute',
+    right: -6,
+    bottom: -6,
+  },
+  profileCameraBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1E5F9E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F4F7FB',
+    elevation: 3,
   },
 
   statsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },

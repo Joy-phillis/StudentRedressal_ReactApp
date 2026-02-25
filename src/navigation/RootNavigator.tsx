@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { ProfileProvider } from '../context/ProfileContext';
 import AuthNavigator from './AuthNavigator';
-import StudentNavigator from './StudentTabNavigator';
+import StudentNavigator from './StudentNavigator';
 import AdminNavigator from './AdminNavigator';
 import StaffNavigator from './StaffNavigator';
 import SplashScreenPage from '../screens/SplashScreen';
@@ -48,21 +49,23 @@ export default function RootNavigator() {
   // 3️⃣ After Splash & loading → Show Navigation
   return (
     <NavigationContainer>
-  {userRole === 'student' && <StudentNavigator />}
-  {userRole === 'admin' && <AdminNavigator />}
-  {userRole === 'staff' && <StaffNavigator />}
-  {!userRole && (
-    <AuthNavigator
-      setUserRole={(role: string) => {
-        // Only accept valid roles
-        if (role === 'student' || role === 'admin' || role === 'staff') {
-          setUserRole(role);
-        } else {
-          console.warn(`Invalid role: ${role}`);
-        }
-      }}
-    />
-  )}
-</NavigationContainer>
+      <ProfileProvider>
+        {userRole === 'student' && <StudentNavigator />}
+        {userRole === 'admin' && <AdminNavigator />}
+        {userRole === 'staff' && <StaffNavigator />}
+        {!userRole && (
+          <AuthNavigator
+            setUserRole={(role: string) => {
+              // Only accept valid roles
+              if (role === 'student' || role === 'admin' || role === 'staff') {
+                setUserRole(role);
+              } else {
+                console.warn(`Invalid role: ${role}`);
+              }
+            }}
+          />
+        )}
+      </ProfileProvider>
+    </NavigationContainer>
   );
 }
