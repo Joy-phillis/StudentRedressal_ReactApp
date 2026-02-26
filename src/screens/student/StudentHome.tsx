@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import {
   View,
   Text,
@@ -93,6 +94,15 @@ export default function StudentHome({ navigation }: any) {
     transform: [{ translateY: announcementsTranslate.value }],
   }));
 
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
+  };
+
   const renderComplaintCard = ({ item }: any) => {
     let bgColor = '#1E5F9E';
     if (item.status === 'Pending') bgColor = '#FF9800';
@@ -115,11 +125,14 @@ export default function StudentHome({ navigation }: any) {
         </View>
         <View style={styles.topIcons}>
           <TouchableOpacity 
-            style={styles.iconButton}
+            style={[styles.iconButton, { marginRight: 8 }]}
             onPress={() => navigation.navigate('Notifications')}
           >
             <Ionicons name="notifications-outline" size={30} color="#0F3057" />
             <View style={styles.notificationBadge} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
+            <Ionicons name="log-out-outline" size={26} color="#0F3057" />
           </TouchableOpacity>
           <View style={styles.profileContainer}>
             <TouchableOpacity
@@ -204,7 +217,7 @@ export default function StudentHome({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F7FB', paddingTop: 50, paddingHorizontal: 20 },
+  container: { flex: 1, backgroundColor: '#F4F7FB', paddingTop: 70, paddingHorizontal: 20 },
 
   headerContainer: {
     flexDirection: 'row',
@@ -228,14 +241,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
   },
   profileButton: {
-    marginLeft: 15,
-    borderRadius: 20,
+    marginLeft: -25,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   profileAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 55,
+    height: 55,
+    borderRadius: 28,
     backgroundColor: '#1E5F9E',
     justifyContent: 'center',
     alignItems: 'center',
@@ -254,7 +267,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   profileContainer: {
-    marginLeft: 10,
+    marginLeft: 20,
     position: 'relative',
   },
   profileCamera: {

@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { ProfileProvider } from '../context/ProfileContext';
 import AuthNavigator from './AuthNavigator';
+import { AuthProvider } from '../context/AuthContext';
 import StudentNavigator from './StudentNavigator';
-import AdminNavigator from './AdminNavigator';
+import AdminNavigator from './AdminBottomTabs';
 import StaffNavigator from './StaffNavigator';
 import SplashScreenPage from '../screens/SplashScreen';
 
@@ -47,25 +48,31 @@ export default function RootNavigator() {
   }
 
   // 3️⃣ After Splash & loading → Show Navigation
+  const handleLogout = () => {
+    setUserRole(null);
+  };
+
   return (
     <NavigationContainer>
-      <ProfileProvider>
-        {userRole === 'student' && <StudentNavigator />}
-        {userRole === 'admin' && <AdminNavigator />}
-        {userRole === 'staff' && <StaffNavigator />}
-        {!userRole && (
-          <AuthNavigator
-            setUserRole={(role: string) => {
-              // Only accept valid roles
-              if (role === 'student' || role === 'admin' || role === 'staff') {
-                setUserRole(role);
-              } else {
-                console.warn(`Invalid role: ${role}`);
-              }
-            }}
-          />
-        )}
-      </ProfileProvider>
+      <AuthProvider logout={handleLogout}>
+        <ProfileProvider>
+          {userRole === 'student' && <StudentNavigator />}
+          {userRole === 'admin' && <AdminNavigator />}
+          {userRole === 'staff' && <StaffNavigator />}
+          {!userRole && (
+            <AuthNavigator
+              setUserRole={(role: string) => {
+                // Only accept valid roles
+                if (role === 'student' || role === 'admin' || role === 'staff') {
+                  setUserRole(role);
+                } else {
+                  console.warn(`Invalid role: ${role}`);
+                }
+              }}
+            />
+          )}
+        </ProfileProvider>
+      </AuthProvider>
     </NavigationContainer>
   );
 }

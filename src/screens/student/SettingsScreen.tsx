@@ -21,6 +21,7 @@ import Animated, {
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { ProfileContext } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
@@ -101,6 +102,7 @@ export default function SettingsScreen() {
     opacity: contentOpacity.value,
   }));
 
+  const { logout } = useAuth();
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -111,7 +113,7 @@ export default function SettingsScreen() {
           text: 'Logout',
           onPress: () => {
             Alert.alert('Logged Out', 'You have been logged out successfully!');
-            navigation.replace('Login');
+            logout();
           },
           style: 'destructive',
         },
