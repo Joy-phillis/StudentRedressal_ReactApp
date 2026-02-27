@@ -1,23 +1,50 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const studentsInit = [
-  { id: '1', name: 'Joy Phillis', status: 'Active' },
-  { id: '2', name: 'Mary Jane', status: 'Suspended' },
-  { id: '3', name: 'Alex Kim', status: 'Active' },
-];
+import { supabase } from '../../services/supabase';
 
 export default function ManageStudents({ navigation }: any) {
-  const [students, setStudents] = useState(studentsInit);
+  const [students, setStudents] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const toggleStatus = (id: string) => {
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, status: s.status === 'Active' ? 'Suspended' : 'Active' } : s));
-    Alert.alert('Updated', 'Student status updated (simulated).');
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+ const fetchStudents = async () => {
+  setLoading(true);
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'student')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    Alert.alert('Error', error.message);
+    setStudents([]);
+  } else {
+    setStudents(data || []);
+  }
+  setLoading(false);
+};
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: newStatus })
+      .eq('id', id);
+
+    if (error) Alert.alert('Error', error.message);
+    else {
+      fetchStudents();
+      Alert.alert('Updated', 'Student status updated successfully.');
+    }
   };
 
-  const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = students.filter(s =>
+    s.full_name?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
@@ -30,17 +57,32 @@ export default function ManageStudents({ navigation }: any) {
       </View>
 
       <View style={styles.searchBox}>
-        <TextInput placeholder="Search students..." value={search} onChangeText={setSearch} style={styles.input} />
+        <TextInput
+          placeholder="Search students..."
+          value={search}
+          onChangeText={setSearch}
+          style={styles.input}
+        />
       </View>
+
+      {loading && <ActivityIndicator size="large" color="#1E5F9E" style={{ marginVertical: 10 }} />}
 
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.name}>{item.name}</Text>
-            <TouchableOpacity style={[styles.statusBtn, { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF3B30' }]} onPress={() => toggleStatus(item.id)}>
-              <Text style={{ color: '#fff', fontSize: 12 }}>{item.status}</Text>
+            <Text style={styles.name}>{item.full_name}</Text>
+            <TouchableOpacity
+              style={[
+                styles.statusBtn,
+                { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF3B30' }
+              ]}
+              onPress={() => toggleStatus(item.id, item.status)}
+            >
+              <Text style={{ color: '#fff', fontSize: 12 }}>
+                {item.status || 'Active'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}

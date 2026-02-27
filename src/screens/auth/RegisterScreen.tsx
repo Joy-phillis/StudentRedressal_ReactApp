@@ -89,83 +89,84 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
     return true;
   };
 
-const handleRegister = async () => {
-  let valid = true;
+  const handleRegister = async () => {
+    let valid = true;
 
-  setNameError('');
-  setEmailError('');
-  setPasswordError('');
-  setConfirmError('');
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmError('');
 
-  if (!validateFullName(fullName)) {
-    setNameError('Enter a valid full name');
-    valid = false;
-  }
+    if (!validateFullName(fullName)) {
+      setNameError('Enter a valid full name');
+      valid = false;
+    }
 
-  if (!validateEmail(email)) {
-    setEmailError('Enter valid email');
-    valid = false;
-  }
+    if (!validateEmail(email)) {
+      setEmailError('Enter valid email');
+      valid = false;
+    }
 
-  if (!validatePassword(password)) {
-    setPasswordError('Weak password');
-    valid = false;
-  }
+    if (!validatePassword(password)) {
+      setPasswordError('Weak password');
+      valid = false;
+    }
 
-  if (confirmPassword !== password) {
-    setConfirmError('Passwords do not match');
-    valid = false;
-  }
+    if (confirmPassword !== password) {
+      setConfirmError('Passwords do not match');
+      valid = false;
+    }
 
-  if (!valid) return;
+    if (!valid) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  // 1️⃣ Create Auth User
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+    // 1️⃣ Create Auth User
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (error) {
-    setLoading(false);
-    setEmailError(error.message);
-    return;
-  }
-
-  const user = data.user;
-
-  if (user) {
-    // 2️⃣ Insert into profiles table
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([
-        {
-          id: user.id,
-          full_name: fullName,
-          email: email,
-          role: selectedRole,
-        },
-      ]);
-
-    if (profileError) {
+    if (error) {
       setLoading(false);
-      alert(profileError.message);
+      setEmailError(error.message);
       return;
     }
 
-    // 🔥 IMPORTANT: Log user out immediately
-    await supabase.auth.signOut();
+    const user = data.user;
 
-    // ✅ Success Message
-    alert('Registration successful! Please login to continue.');
+    if (user) {
+      // 2️⃣ Insert into profiles table with default status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: user.id,
+            full_name: fullName,
+            email: email,
+            role: selectedRole,
+            status: 'Active', // default status so admin sees it
+          },
+        ]);
 
-    // ✅ Go back to Login
-    navigation.navigate('Login');
-  }
+      if (profileError) {
+        setLoading(false);
+        alert(profileError.message);
+        return;
+      }
 
-  setLoading(false);
-};
+      // 🔥 Important: Log user out immediately
+      await supabase.auth.signOut();
+
+      // ✅ Success Message
+      alert('Registration successful! Please login to continue.');
+
+      // ✅ Go back to Login
+      navigation.navigate('Login');
+    }
+
+    setLoading(false);
+  };
 
   const isFormValid =
     validateFullName(fullName) &&
@@ -193,9 +194,7 @@ const handleRegister = async () => {
                   styles.roleButton,
                   selectedRole === role && styles.roleButtonActive,
                 ]}
-                onPress={() =>
-                  setSelectedRole(role as 'student' | 'staff')
-                }
+                onPress={() => setSelectedRole(role as 'student' | 'staff')}
               >
                 <Text
                   style={[
@@ -335,7 +334,6 @@ const styles = StyleSheet.create({
       backgroundColor: '#F4F7FB',
     },
   }),
-
   container: {
     marginHorizontal: 25,
     backgroundColor: '#FFFFFF',

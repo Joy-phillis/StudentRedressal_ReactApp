@@ -1,22 +1,40 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const staff = [
-  { id: '1', name: 'Mr. Adams', workload: 5, email: 'adams@university.edu' },
-  { id: '2', name: 'Ms. Clara', workload: 2, email: 'clara@university.edu' },
-];
+import { supabase } from '../../services/supabase';
 
 export default function ManageStaff({ navigation }: any) {
+  const [staff, setStaff] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { fetchStaff(); }, []);
+
+const fetchStaff = async () => {
+  setLoading(true);
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'staff')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    Alert.alert('Error', error.message);
+    setStaff([]);
+  } else {
+    setStaff(data || []);
+  }
+  setLoading(false);
+};
 
   const open = (s: any) => { setSelected(s); setModalVisible(true); };
   const close = () => { setModalVisible(false); setSelected(null); };
 
-  const reassign = (id: string) => {
-    Alert.alert('Reassign', `Open reassign flow for staff ${id} (simulated).`);
-    close();
+  const removeStaff = async (id: string) => {
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) Alert.alert('Error', error.message);
+    else { fetchStaff(); close(); Alert.alert('Removed', 'Staff removed successfully.'); }
   };
 
   return (
@@ -29,17 +47,16 @@ export default function ManageStaff({ navigation }: any) {
         <View style={{ width: 24 }} />
       </View>
 
+      {loading && <ActivityIndicator size="large" color="#1E5F9E" style={{ marginVertical: 10 }} />}
+
       <FlatList
         data={staff}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => open(item)}>
             <View>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.workload}>{item.workload} Active Cases</Text>
-              <View style={styles.loadBarBg}>
-                <View style={[styles.loadBar, { width: `${Math.min(item.workload * 12 + 10, 100)}%` }]} />
-              </View>
+              <Text style={styles.name}>{item.full_name}</Text>
+              <Text style={styles.workload}>{item.email}</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -48,18 +65,22 @@ export default function ManageStaff({ navigation }: any) {
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={close}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalName}>{selected?.name}</Text>
+            <Text style={styles.modalName}>{selected?.full_name}</Text>
             <Text style={styles.modalText}>Email: {selected?.email}</Text>
-            <Text style={styles.modalText}>Active Cases: {selected?.workload}</Text>
+            <Text style={styles.modalText}>Role: {selected?.role}</Text>
+
             <View style={{ flexDirection: 'row', marginTop: 16 }}>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#1E5F9E', marginRight: 8 }]} onPress={() => reassign(selected?.id)}>
-                <Text style={{ color: '#fff' }}>Reassign</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]} onPress={() => { Alert.alert('Remove', 'Remove staff (simulated).'); close(); }}>
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#FF3B30', flex: 1 }]}
+                onPress={() => removeStaff(selected?.id)}
+              >
                 <Text style={{ color: '#fff' }}>Remove</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={close}><Text style={{ color: '#1E5F9E' }}>Close</Text></TouchableOpacity>
+
+            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={close}>
+              <Text style={{ color: '#1E5F9E' }}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -75,8 +96,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 12 },
   name: { fontWeight: '600', color: '#0F3057', fontSize: 16 },
   workload: { marginTop: 6, color: '#777' },
-  loadBarBg: { height: 8, backgroundColor: '#eef3fb', borderRadius: 6, marginTop: 8, overflow: 'hidden' },
-  loadBar: { height: '100%', backgroundColor: '#1E5F9E' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12 },
   modalName: { fontSize: 18, fontWeight: '700', color: '#0F3057' },
