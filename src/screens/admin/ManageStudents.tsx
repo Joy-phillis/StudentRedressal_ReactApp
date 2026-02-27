@@ -19,6 +19,7 @@ export default function ManageStudents({ navigation }: any) {
   const [modalVisible, setModalVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     fetchStudents();
@@ -41,37 +42,38 @@ export default function ManageStudents({ navigation }: any) {
     setLoading(false);
   };
 
-  const open = (s: any) => {
-    setSelected(s);
+  const openModal = (student: any) => {
+    setSelected(student);
     setModalVisible(true);
   };
-  const close = () => {
+
+  const closeModal = () => {
     setSelected(null);
     setModalVisible(false);
   };
 
-  const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
+  const toggleStatus = async (student: any) => {
+    if (!student) return;
+    const newStatus = student.status === 'Active' ? 'Suspended' : 'Active';
+    setActionLoading(true);
+
     const { error } = await supabase
       .from('profiles')
       .update({ status: newStatus })
-      .eq('id', id);
+      .eq('id', student.id);
 
-    if (error) Alert.alert('Error', error.message);
-    else {
-      fetchStudents();
-      Alert.alert('Updated', 'Student status updated successfully.');
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      // Update local state to immediately reflect changes
+      setStudents(prev =>
+        prev.map(s => (s.id === student.id ? { ...s, status: newStatus } : s))
+      );
+      setSelected({ ...student, status: newStatus });
+      Alert.alert('Success', `Student status changed to ${newStatus}`);
     }
-  };
 
-  const removeStudent = async (id: string) => {
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    if (error) Alert.alert('Error', error.message);
-    else {
-      fetchStudents();
-      close();
-      Alert.alert('Removed', 'Student removed successfully.');
-    }
+    setActionLoading(false);
   };
 
   const filtered = students.filter(s =>
@@ -103,7 +105,7 @@ export default function ManageStudents({ navigation }: any) {
         data={filtered}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => open(item)}>
+          <TouchableOpacity style={styles.card} onPress={() => openModal(item)}>
             <View style={styles.cardRow}>
               <View>
                 <Text style={styles.name}>{item.full_name}</Text>
@@ -114,7 +116,7 @@ export default function ManageStudents({ navigation }: any) {
                   styles.statusBtn,
                   { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF3B30' },
                 ]}
-                onPress={() => toggleStatus(item.id, item.status)}
+                onPress={() => toggleStatus(item)}
               >
                 <Text style={styles.statusText}>{item.status || 'Active'}</Text>
               </TouchableOpacity>
@@ -124,7 +126,7 @@ export default function ManageStudents({ navigation }: any) {
       />
 
       {/* Modal for student details */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={close}>
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalName}>{selected?.full_name}</Text>
@@ -134,14 +136,23 @@ export default function ManageStudents({ navigation }: any) {
 
             <View style={{ flexDirection: 'row', marginTop: 16 }}>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#FF3B30', flex: 1 }]}
-                onPress={() => removeStudent(selected?.id)}
+                style={[
+                  styles.actionBtn,
+                  {
+                    backgroundColor: selected?.status === 'Active' ? '#FF3B30' : '#4CAF50',
+                    flex: 1,
+                  },
+                ]}
+                onPress={() => toggleStatus(selected)}
+                disabled={actionLoading}
               >
-                <Text style={{ color: '#fff' }}>Remove</Text>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>
+                  {selected?.status === 'Active' ? 'Suspend' : 'Activate'}
+                </Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={close}>
+            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={closeModal}>
               <Text style={{ color: '#1E5F9E' }}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -154,7 +165,7 @@ export default function ManageStudents({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F7FB', paddingHorizontal: 20, paddingTop: 60 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#0F3057' },
+  headerTitle: { fontSize: 30, fontWeight: '700', color: '#0F3057' },
   backBtn: { padding: 4 },
   searchBox: { backgroundColor: '#fff', padding: 10, borderRadius: 10, marginBottom: 12 },
   input: { fontSize: 14 },
