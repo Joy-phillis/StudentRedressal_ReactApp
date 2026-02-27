@@ -32,6 +32,9 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const containerOpacity = useSharedValue(0);
   const translateY = useSharedValue(30);
 
@@ -64,8 +67,52 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
     ),
   }));
 
+  // 🔹 Improved Email Validation
+  const validateEmail = (value: string) => {
+    const emailRegex =
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+    return emailRegex.test(value.trim());
+  };
+
+  // 🔹 Strong Password Validation
+  const validatePassword = (value: string) => {
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{6,}$/;
+    return passwordRegex.test(value);
+  };
+
   const handleLogin = () => {
-    if (!email || !password) return;
+    let valid = true;
+
+    const trimmedEmail = email.trim();
+
+    setEmailError('');
+    setPasswordError('');
+
+    // Email Validation
+    if (!trimmedEmail) {
+      setEmailError('Email is required');
+      valid = false;
+    } else if (!validateEmail(trimmedEmail)) {
+      setEmailError('Enter a valid email address');
+      valid = false;
+    }
+
+    // Password Validation
+    if (!password) {
+      setPasswordError('Password is required');
+      valid = false;
+    } else if (password.includes(' ')) {
+      setPasswordError('Password cannot contain spaces');
+      valid = false;
+    } else if (!validatePassword(password)) {
+      setPasswordError(
+        'Min 8 chars, 1 uppercase, 1 lowercase, 1 number & 1 special character'
+      );
+      valid = false;
+    }
+
+    if (!valid) return;
 
     setLoading(true);
 
@@ -74,6 +121,11 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
       setUserRole(selectedRole);
     }, 1500);
   };
+
+  const isFormValid =
+    validateEmail(email) &&
+    validatePassword(password) &&
+    !loading;
 
   return (
     <KeyboardAvoidingView
@@ -117,11 +169,22 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
             placeholderTextColor="#999"
             style={styles.input}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (emailError) setEmailError('');
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            onBlur={() => {
+              emailFocus.value = withTiming(0);
+              if (email && !validateEmail(email)) {
+                setEmailError('Enter a valid email address');
+              }
+            }}
             onFocus={() => (emailFocus.value = withTiming(1))}
-            onBlur={() => (emailFocus.value = withTiming(0))}
           />
         </Animated.View>
+        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
         {/* Password */}
         <Animated.View style={[styles.inputContainer, passwordAnimatedStyle]}>
@@ -132,9 +195,19 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
             secureTextEntry={secureText}
             style={styles.input}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (passwordError) setPasswordError('');
+            }}
+            onBlur={() => {
+              passwordFocus.value = withTiming(0);
+              if (password && !validatePassword(password)) {
+                setPasswordError(
+                  'Min 8 chars, 1 uppercase, 1 lowercase, 1 number & 1 special character'
+                );
+              }
+            }}
             onFocus={() => (passwordFocus.value = withTiming(1))}
-            onBlur={() => (passwordFocus.value = withTiming(0))}
           />
           <TouchableOpacity onPress={() => setSecureText(!secureText)}>
             <Ionicons
@@ -144,9 +217,17 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
             />
           </TouchableOpacity>
         </Animated.View>
+        {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
         {/* Login Button */}
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+        <TouchableOpacity
+          style={[
+            styles.loginButton,
+            !isFormValid && { opacity: 0.6 },
+          ]}
+          onPress={handleLogin}
+          disabled={!isFormValid}
+        >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -231,7 +312,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 12,
-    marginBottom: 15,
+    marginBottom: 5,
     backgroundColor: '#FAFAFA',
   },
   input: {
@@ -269,5 +350,11 @@ const styles = StyleSheet.create({
     marginTop: 18,
     fontSize: 12,
     color: '#999',
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 5,
   },
 });

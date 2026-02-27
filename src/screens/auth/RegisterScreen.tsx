@@ -36,6 +36,12 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
   const [secureConfirmText, setSecureConfirmText] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  // 🔹 Error States
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
+
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(30);
 
@@ -63,9 +69,59 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
       ),
     }));
 
+  // 🔹 Validation Functions
+  const validateEmail = (value: string) => {
+    const emailRegex =
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+    return emailRegex.test(value.trim());
+  };
+
+  const validatePassword = (value: string) => {
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{8,}$/;
+    return passwordRegex.test(value);
+  };
+
+  const validateFullName = (value: string) => {
+    if (value.trim().length < 3) return false;
+    if (/^\d+$/.test(value)) return false;
+    return true;
+  };
+
   const handleRegister = () => {
-    if (!fullName || !email || !password || !confirmPassword) return;
-    if (password !== confirmPassword) return;
+    let valid = true;
+
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmError('');
+
+    if (!validateFullName(fullName)) {
+      setNameError('Enter a valid full name (min 3 characters)');
+      valid = false;
+    }
+
+    if (!validateEmail(email)) {
+      setEmailError('Enter a valid email address');
+      valid = false;
+    }
+
+    if (password.includes(' ')) {
+      setPasswordError('Password cannot contain spaces');
+      valid = false;
+    } else if (!validatePassword(password)) {
+      setPasswordError(
+        'Min 8 chars, 1 uppercase, 1 lowercase, 1 number & 1 special character'
+      );
+      valid = false;
+    }
+
+    if (confirmPassword !== password) {
+      setConfirmError('Passwords do not match');
+      valid = false;
+    }
+
+    if (!valid) return;
 
     setLoading(true);
 
@@ -74,6 +130,13 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
       setUserRole(selectedRole);
     }, 1500);
   };
+
+  const isFormValid =
+    validateFullName(fullName) &&
+    validateEmail(email) &&
+    validatePassword(password) &&
+    confirmPassword === password &&
+    !loading;
 
   return (
     <KeyboardAvoidingView
@@ -85,7 +148,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Register to continue</Text>
 
-          {/* Role Selector (Admin Removed) */}
+          {/* Role Selector */}
           <View style={styles.roleContainer}>
             {['student', 'staff'].map((role) => (
               <TouchableOpacity
@@ -117,11 +180,15 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               placeholder="Full Name"
               style={styles.input}
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={(text) => {
+                setFullName(text);
+                if (nameError) setNameError('');
+              }}
               onFocus={() => (nameFocus.value = withTiming(1))}
               onBlur={() => (nameFocus.value = withTiming(0))}
             />
           </Animated.View>
+          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
           {/* Email */}
           <Animated.View style={[styles.inputContainer, getFocusStyle(emailFocus)]}>
@@ -130,11 +197,17 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               placeholder="Email Address"
               style={styles.input}
               value={email}
-              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              onChangeText={(text) => {
+                setEmail(text);
+                if (emailError) setEmailError('');
+              }}
               onFocus={() => (emailFocus.value = withTiming(1))}
               onBlur={() => (emailFocus.value = withTiming(0))}
             />
           </Animated.View>
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
           {/* Password */}
           <Animated.View style={[styles.inputContainer, getFocusStyle(passwordFocus)]}>
@@ -144,7 +217,10 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               secureTextEntry={secureText}
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (passwordError) setPasswordError('');
+              }}
               onFocus={() => (passwordFocus.value = withTiming(1))}
               onBlur={() => (passwordFocus.value = withTiming(0))}
             />
@@ -156,6 +232,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               />
             </TouchableOpacity>
           </Animated.View>
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
           {/* Confirm Password */}
           <Animated.View style={[styles.inputContainer, getFocusStyle(confirmFocus)]}>
@@ -165,7 +242,10 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               secureTextEntry={secureConfirmText}
               style={styles.input}
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                if (confirmError) setConfirmError('');
+              }}
               onFocus={() => (confirmFocus.value = withTiming(1))}
               onBlur={() => (confirmFocus.value = withTiming(0))}
             />
@@ -177,9 +257,17 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               />
             </TouchableOpacity>
           </Animated.View>
+          {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
 
           {/* Register Button */}
-          <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+          <TouchableOpacity
+            style={[
+              styles.registerButton,
+              !isFormValid && { opacity: 0.6 },
+            ]}
+            onPress={handleRegister}
+            disabled={!isFormValid}
+          >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -205,10 +293,13 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#F4F7FB',
-  },
+  ...StyleSheet.flatten({
+    wrapper: {
+      flex: 1,
+      backgroundColor: '#F4F7FB',
+    },
+  }),
+
   container: {
     marginHorizontal: 25,
     backgroundColor: '#FFFFFF',
@@ -262,7 +353,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 12,
-    marginBottom: 15,
+    marginBottom: 5,
     backgroundColor: '#FAFAFA',
   },
   input: {
@@ -299,5 +390,11 @@ const styles = StyleSheet.create({
     marginTop: 18,
     fontSize: 12,
     color: '#999',
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 5,
   },
 });
