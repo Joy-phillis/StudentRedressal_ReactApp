@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 
@@ -9,32 +18,58 @@ export default function ManageStaff({ navigation }: any) {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { fetchStaff(); }, []);
+  useEffect(() => {
+    fetchStaff();
+  }, []);
 
-const fetchStaff = async () => {
-  setLoading(true);
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('role', 'staff')
-    .order('full_name', { ascending: true });
+  const fetchStaff = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'staff')
+      .order('full_name', { ascending: true });
 
-  if (error) {
-    Alert.alert('Error', error.message);
-    setStaff([]);
-  } else {
-    setStaff(data || []);
-  }
-  setLoading(false);
-};
+    if (error) {
+      Alert.alert('Error', error.message);
+      setStaff([]);
+    } else {
+      setStaff(data || []);
+    }
+    setLoading(false);
+  };
 
-  const open = (s: any) => { setSelected(s); setModalVisible(true); };
-  const close = () => { setModalVisible(false); setSelected(null); };
+  const open = (s: any) => {
+    setSelected(s);
+    setModalVisible(true);
+  };
+  const close = () => {
+    setModalVisible(false);
+    setSelected(null);
+  };
 
   const removeStaff = async (id: string) => {
     const { error } = await supabase.from('profiles').delete().eq('id', id);
     if (error) Alert.alert('Error', error.message);
-    else { fetchStaff(); close(); Alert.alert('Removed', 'Staff removed successfully.'); }
+    else {
+      fetchStaff();
+      close();
+      Alert.alert('Removed', 'Staff removed successfully.');
+    }
+  };
+
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: newStatus })
+      .eq('id', id);
+
+    if (error) Alert.alert('Error', error.message);
+    else {
+      fetchStaff();
+      Alert.alert('Updated', 'Staff status updated successfully.');
+    }
   };
 
   return (
@@ -54,9 +89,20 @@ const fetchStaff = async () => {
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => open(item)}>
-            <View>
-              <Text style={styles.name}>{item.full_name}</Text>
-              <Text style={styles.workload}>{item.email}</Text>
+            <View style={styles.cardRow}>
+              <View>
+                <Text style={styles.name}>{item.full_name}</Text>
+                <Text style={styles.workload}>{item.email}</Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.statusBtn,
+                  { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF3B30' },
+                ]}
+                onPress={() => toggleStatus(item.id, item.status)}
+              >
+                <Text style={styles.statusText}>{item.status || 'Active'}</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
@@ -68,6 +114,7 @@ const fetchStaff = async () => {
             <Text style={styles.modalName}>{selected?.full_name}</Text>
             <Text style={styles.modalText}>Email: {selected?.email}</Text>
             <Text style={styles.modalText}>Role: {selected?.role}</Text>
+            <Text style={styles.modalText}>Status: {selected?.status || 'Active'}</Text>
 
             <View style={{ flexDirection: 'row', marginTop: 16 }}>
               <TouchableOpacity
@@ -94,8 +141,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#0F3057' },
   backBtn: { padding: 4 },
   card: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 12 },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontWeight: '600', color: '#0F3057', fontSize: 16 },
   workload: { marginTop: 6, color: '#777' },
+  statusBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
+  statusText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12 },
   modalName: { fontSize: 18, fontWeight: '700', color: '#0F3057' },

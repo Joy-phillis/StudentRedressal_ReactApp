@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 
 export default function ManageStudents({ navigation }: any) {
   const [students, setStudents] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -12,22 +24,32 @@ export default function ManageStudents({ navigation }: any) {
     fetchStudents();
   }, []);
 
- const fetchStudents = async () => {
-  setLoading(true);
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('role', 'student')
-    .order('full_name', { ascending: true });
+  const fetchStudents = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'student')
+      .order('full_name', { ascending: true });
 
-  if (error) {
-    Alert.alert('Error', error.message);
-    setStudents([]);
-  } else {
-    setStudents(data || []);
-  }
-  setLoading(false);
-};
+    if (error) {
+      Alert.alert('Error', error.message);
+      setStudents([]);
+    } else {
+      setStudents(data || []);
+    }
+    setLoading(false);
+  };
+
+  const open = (s: any) => {
+    setSelected(s);
+    setModalVisible(true);
+  };
+  const close = () => {
+    setSelected(null);
+    setModalVisible(false);
+  };
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
     const { error } = await supabase
@@ -39,6 +61,16 @@ export default function ManageStudents({ navigation }: any) {
     else {
       fetchStudents();
       Alert.alert('Updated', 'Student status updated successfully.');
+    }
+  };
+
+  const removeStudent = async (id: string) => {
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) Alert.alert('Error', error.message);
+    else {
+      fetchStudents();
+      close();
+      Alert.alert('Removed', 'Student removed successfully.');
     }
   };
 
@@ -71,22 +103,50 @@ export default function ManageStudents({ navigation }: any) {
         data={filtered}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.name}>{item.full_name}</Text>
-            <TouchableOpacity
-              style={[
-                styles.statusBtn,
-                { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF3B30' }
-              ]}
-              onPress={() => toggleStatus(item.id, item.status)}
-            >
-              <Text style={{ color: '#fff', fontSize: 12 }}>
-                {item.status || 'Active'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.card} onPress={() => open(item)}>
+            <View style={styles.cardRow}>
+              <View>
+                <Text style={styles.name}>{item.full_name}</Text>
+                <Text style={styles.workload}>{item.email}</Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.statusBtn,
+                  { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF3B30' },
+                ]}
+                onPress={() => toggleStatus(item.id, item.status)}
+              >
+                <Text style={styles.statusText}>{item.status || 'Active'}</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         )}
       />
+
+      {/* Modal for student details */}
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={close}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalName}>{selected?.full_name}</Text>
+            <Text style={styles.modalText}>Email: {selected?.email}</Text>
+            <Text style={styles.modalText}>Role: {selected?.role}</Text>
+            <Text style={styles.modalText}>Status: {selected?.status || 'Active'}</Text>
+
+            <View style={{ flexDirection: 'row', marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#FF3B30', flex: 1 }]}
+                onPress={() => removeStudent(selected?.id)}
+              >
+                <Text style={{ color: '#fff' }}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={close}>
+              <Text style={{ color: '#1E5F9E' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -98,7 +158,15 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   searchBox: { backgroundColor: '#fff', padding: 10, borderRadius: 10, marginBottom: 12 },
   input: { fontSize: 14 },
-  card: { backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  card: { backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 12 },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontWeight: '600', color: '#0F3057' },
+  workload: { marginTop: 6, color: '#777' },
   statusBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  statusText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
+  modalCard: { width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12 },
+  modalName: { fontSize: 18, fontWeight: '700', color: '#0F3057' },
+  modalText: { marginTop: 8, color: '#555' },
+  actionBtn: { flex: 1, padding: 10, borderRadius: 8, alignItems: 'center' },
 });
