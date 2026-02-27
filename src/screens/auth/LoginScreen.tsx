@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../services/supabase';
 import {
   View,
   Text,
@@ -34,6 +35,7 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const containerOpacity = useSharedValue(0);
   const translateY = useSharedValue(30);
@@ -81,46 +83,59 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
     return passwordRegex.test(value);
   };
 
-  const handleLogin = () => {
-    let valid = true;
+const handleLogin = async () => {
+  let valid = true;
 
-    const trimmedEmail = email.trim();
+  const trimmedEmail = email.trim();
 
-    setEmailError('');
-    setPasswordError('');
+  setEmailError('');
+  setPasswordError('');
+  setSuccessMessage('');
 
-    // Email Validation
-    if (!trimmedEmail) {
-      setEmailError('Email is required');
-      valid = false;
-    } else if (!validateEmail(trimmedEmail)) {
-      setEmailError('Enter a valid email address');
-      valid = false;
-    }
+  if (!trimmedEmail) {
+    setEmailError('Email is required');
+    valid = false;
+  } else if (!validateEmail(trimmedEmail)) {
+    setEmailError('Enter a valid email address');
+    valid = false;
+  }
 
-    // Password Validation
-    if (!password) {
-      setPasswordError('Password is required');
-      valid = false;
-    } else if (password.includes(' ')) {
-      setPasswordError('Password cannot contain spaces');
-      valid = false;
-    } else if (!validatePassword(password)) {
-      setPasswordError(
-        'Min 8 chars, 1 uppercase, 1 lowercase, 1 number & 1 special character'
-      );
-      valid = false;
-    }
+  if (!password) {
+    setPasswordError('Password is required');
+    valid = false;
+  } else if (password.length < 6) {
+    setPasswordError('Password must be at least 6 characters');
+    valid = false;
+  }
 
-    if (!valid) return;
+  if (!valid) return;
 
-    setLoading(true);
+  setLoading(true);
 
+  // 🔐 Supabase Login
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: trimmedEmail,
+    password: password,
+  });
+
+  if (error) {
+    setLoading(false);
+    setPasswordError(error.message);
+    return;
+  }
+
+  if (data.user) {
+    // ✅ Success message
+    setSuccessMessage('Login successful! Redirecting...');
+
+    // ⏳ Small delay so user sees message
     setTimeout(() => {
-      setLoading(false);
       setUserRole(selectedRole);
-    }, 1500);
-  };
+    }, 1200);
+  }
+
+  setLoading(false);
+};
 
   const isFormValid =
     validateEmail(email) &&
@@ -358,3 +373,7 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
 });
+
+function setSuccessMessage(arg0: string) {
+  throw new Error('Function not implemented.');
+}

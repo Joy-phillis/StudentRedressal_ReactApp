@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../services/supabase';
 import {
   View,
   Text,
@@ -88,48 +89,83 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
     return true;
   };
 
-  const handleRegister = () => {
-    let valid = true;
+const handleRegister = async () => {
+  let valid = true;
 
-    setNameError('');
-    setEmailError('');
-    setPasswordError('');
-    setConfirmError('');
+  setNameError('');
+  setEmailError('');
+  setPasswordError('');
+  setConfirmError('');
 
-    if (!validateFullName(fullName)) {
-      setNameError('Enter a valid full name (min 3 characters)');
-      valid = false;
-    }
+  if (!validateFullName(fullName)) {
+    setNameError('Enter a valid full name');
+    valid = false;
+  }
 
-    if (!validateEmail(email)) {
-      setEmailError('Enter a valid email address');
-      valid = false;
-    }
+  if (!validateEmail(email)) {
+    setEmailError('Enter valid email');
+    valid = false;
+  }
 
-    if (password.includes(' ')) {
-      setPasswordError('Password cannot contain spaces');
-      valid = false;
-    } else if (!validatePassword(password)) {
-      setPasswordError(
-        'Min 8 chars, 1 uppercase, 1 lowercase, 1 number & 1 special character'
-      );
-      valid = false;
-    }
+  if (!validatePassword(password)) {
+    setPasswordError('Weak password');
+    valid = false;
+  }
 
-    if (confirmPassword !== password) {
-      setConfirmError('Passwords do not match');
-      valid = false;
-    }
+  if (confirmPassword !== password) {
+    setConfirmError('Passwords do not match');
+    valid = false;
+  }
 
-    if (!valid) return;
+  if (!valid) return;
 
-    setLoading(true);
+  setLoading(true);
 
-    setTimeout(() => {
+  // 1️⃣ Create Auth User
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) {
+    setLoading(false);
+    setEmailError(error.message);
+    return;
+  }
+
+  const user = data.user;
+
+  if (user) {
+    // 2️⃣ Insert into profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert([
+        {
+          id: user.id,
+          full_name: fullName,
+          email: email,
+          role: selectedRole,
+        },
+      ]);
+
+    if (profileError) {
       setLoading(false);
-      setUserRole(selectedRole);
-    }, 1500);
-  };
+      alert(profileError.message);
+      return;
+    }
+
+    // 🔥 IMPORTANT: Log user out immediately
+    await supabase.auth.signOut();
+
+    // ✅ Success Message
+    alert('Registration successful! Please login to continue.');
+
+    // ✅ Go back to Login
+    navigation.navigate('Login');
+  }
+
+  setLoading(false);
+};
 
   const isFormValid =
     validateFullName(fullName) &&
