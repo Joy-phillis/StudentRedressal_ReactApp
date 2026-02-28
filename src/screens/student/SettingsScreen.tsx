@@ -8,88 +8,69 @@ import {
   Switch,
   Alert,
   Image,
-  Dimensions,
   Platform,
+  LayoutAnimation,
+  UIManager,
+  Linking,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  StatusBar,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  FadeInDown,
-} from 'react-native-reanimated';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { ProfileContext } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
-import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../../services/supabase';
 
-const { width } = Dimensions.get('window');
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const COLORS = {
-  primary: '#2E5090',
-  secondary: '#FF6B6B',
-  accent: '#4CAF50',
-  background: '#F8FAFC',
+  primary: '#1E5F9E',
+  secondary: '#FF3B30',
+  background: '#F4F7FB',
   surface: '#FFFFFF',
-  text: '#1A2332',
+  text: '#0F3057',
   textLight: '#6B7280',
   border: '#E5E7EB',
-  shadow: '#000000',
-  warning: '#FFA500',
 };
 
-interface ToggleSetting {
-  id: string;
-  label: string;
-  description: string;
-  value: boolean;
-}
+const faqs = [
+  { q: 'How can I track my complaint?', a: 'Go to Dashboard → My Complaints to see status updates.' },
+  { q: 'How long does resolution take?', a: 'Most issues are resolved within 3–7 working days.' },
+  { q: 'Is my complaint confidential?', a: 'Yes. Your complaint is visible only to assigned authorities.' },
+];
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { profile, setProfile } = useContext(ProfileContext);
+  const { logout } = useAuth();
+
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [privateProfile, setPrivateProfile] = useState(false);
-  const [twoFactorAuth, setTwoFactorAuth] = useState(false);
+  const [twoFactor, setTwoFactor] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
-  const handleUploadPhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please allow access to photo library');
-        return;
-      }
+  const [passwordModal, setPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [loadingPassword, setLoadingPassword] = useState(false);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 1,
-      });
+  const [supportModal, setSupportModal] = useState(false);
+  const [supportMessage, setSupportMessage] = useState('');
+  const [loadingSupport, setLoadingSupport] = useState(false);
 
-      if (!result.canceled && result.assets[0]) {
-        const uri = result.assets[0].uri;
-        setProfile({ image: uri });
-        Alert.alert('Success', 'Profile photo updated successfully!');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload photo');
-    }
-  };
-
-  const headerScale = useSharedValue(0.8);
+  const headerScale = useSharedValue(0.9);
   const headerOpacity = useSharedValue(0);
-  const contentTranslate = useSharedValue(50);
-  const contentOpacity = useSharedValue(0);
 
   useEffect(() => {
-    headerScale.value = withSpring(1, { damping: 13, stiffness: 100 });
+    headerScale.value = withSpring(1);
     headerOpacity.value = withTiming(1, { duration: 400 });
-    contentTranslate.value = withTiming(0, { duration: 500 });
-    contentOpacity.value = withTiming(1, { duration: 500 });
   }, []);
 
   const headerStyle = useAnimatedStyle(() => ({
@@ -97,560 +78,252 @@ export default function SettingsScreen() {
     opacity: headerOpacity.value,
   }));
 
-  const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: contentTranslate.value }],
-    opacity: contentOpacity.value,
-  }));
+  const handleUploadPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow gallery access.');
+      return;
+    }
 
-  const { logout } = useAuth();
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Logout',
-          onPress: () => {
-            Alert.alert('Logged Out', 'You have been logged out successfully!');
-            logout();
-          },
-          style: 'destructive',
-        },
-      ],
-      { cancelable: false }
-    );
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfile({ image: result.assets[0].uri });
+      Alert.alert('Success', 'Profile updated successfully.');
+    }
   };
 
-  const renderSettingItem = ({
-    icon,
-    iconColor,
-    title,
-    description,
-    onPress,
-    index,
-  }: {
-    icon: string;
-    iconColor: string;
-    title: string;
-    description: string;
-    onPress: () => void;
-    index: number;
-  }) => (
-    <Animated.View
-      entering={FadeInDown.delay(100 + index * 50).duration(500)}
-      style={styles.settingItemWrapper}
-    >
-      <TouchableOpacity style={styles.settingItem} onPress={onPress} activeOpacity={0.7}>
-        <View style={[styles.settingIcon, { backgroundColor: iconColor + '20' }]}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={iconColor} />
-        </View>
-        <View style={styles.settingContent}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          <Text style={styles.settingDescription}>{description}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters.');
+      return;
+    }
+    setLoadingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoadingPassword(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Success', 'Password updated successfully.');
+      setPasswordModal(false);
+      setNewPassword('');
+    }
+  };
 
-  const renderToggleItem = ({
-    icon,
-    iconColor,
-    title,
-    description,
-    value,
-    onToggle,
-    index,
-  }: {
-    icon: string;
-    iconColor: string;
-    title: string;
-    description: string;
-    value: boolean;
-    onToggle: (val: boolean) => void;
-    index: number;
-  }) => (
-    <Animated.View
-      entering={FadeInDown.delay(100 + index * 50).duration(500)}
-      style={styles.settingItemWrapper}
-    >
-      <View style={styles.settingItem}>
-        <View style={[styles.settingIcon, { backgroundColor: iconColor + '20' }]}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={iconColor} />
-        </View>
-        <View style={styles.settingContent}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          <Text style={styles.settingDescription}>{description}</Text>
-        </View>
-        <Switch
-          value={value}
-          onValueChange={onToggle}
-          trackColor={{ false: COLORS.border, true: COLORS.primary + '50' }}
-          thumbColor={value ? COLORS.primary : COLORS.textLight}
-        />
-      </View>
-    </Animated.View>
-  );
+  const handleSendSupport = async () => {
+    if (!supportMessage) {
+      Alert.alert('Error', 'Please enter a message.');
+      return;
+    }
+    setLoadingSupport(true);
+    const { error } = await supabase.from('support_messages').insert([{ message: supportMessage, student_email: profile.email }]);
+    setLoadingSupport(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Success', 'Message sent successfully.');
+      setSupportModal(false);
+      setSupportMessage('');
+    }
+  };
+
+  const toggleFaq = (i: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpenFaqIndex(openFaqIndex === i ? null : i);
+  };
+
+  // unified logout alert that uses context
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header - Profile Card */}
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* PROFILE HEADER */}
         <Animated.View style={[styles.profileCard, headerStyle]}>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity onPress={handleUploadPhoto}>
               {profile.image ? (
-                <Image
-                  source={{ uri: profile.image }}
-                  style={styles.avatar}
-                />
+                <Image source={{ uri: profile.image }} style={styles.avatar} />
               ) : (
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{profile.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</Text>
+                  <Ionicons name="person" size={40} color="#fff" />
                 </View>
               )}
-              <TouchableOpacity 
-                style={styles.editAvatarButton}
-                onPress={handleUploadPhoto}
-              >
-                <Ionicons name="camera" size={16} color={COLORS.surface} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile.name}</Text>
-              <Text style={styles.profileEmail}>{profile.email}</Text>
-              <View style={styles.regNoContainer}>
-                <Text style={styles.regNoLabel}>Registration: </Text>
-                <Text style={styles.regNoValue}>{profile.registration}</Text>
+              <View style={styles.cameraIcon}>
+                <Ionicons name="camera" size={16} color="#fff" />
               </View>
-            </View>
-            <TouchableOpacity
-              style={styles.editProfileButton}
-              onPress={() => navigation.navigate('EditProfile' as any)}
-            >
-              <Ionicons name="pencil" size={18} color={COLORS.primary} />
             </TouchableOpacity>
-          </View>
-          <View style={styles.profileStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>12</Text>
-              <Text style={styles.statLabel}>Complaints</Text>
+
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={styles.name}>{profile.name}</Text>
+              <Text style={styles.email}>{profile.email}</Text>
+              <Text style={styles.reg}>Reg No: {profile.registration}</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>9</Text>
-              <Text style={styles.statLabel}>Resolved</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>3</Text>
-              <Text style={styles.statLabel}>Pending</Text>
-            </View>
+
+            <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
+              <Ionicons name="pencil" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
-        {/* Content Sections */}
-        <Animated.View style={[contentStyle]}>
-          {/* Notification Settings */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notification Settings</Text>
-            {renderToggleItem({
-              icon: 'bell-outline',
-              iconColor: COLORS.primary,
-              title: 'Push Notifications',
-              description: 'Get real-time complaint updates',
-              value: notifications,
-              onToggle: setNotifications,
-              index: 0,
-            })}
-            {renderToggleItem({
-              icon: 'email-outline',
-              iconColor: COLORS.warning,
-              title: 'Email Notifications',
-              description: 'Receive updates via email',
-              value: emailNotifications,
-              onToggle: setEmailNotifications,
-              index: 1,
-            })}
-          </View>
+        {/* PREFERENCES */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          {renderToggle('Push Notifications', notifications, setNotifications)}
+          {renderToggle('Email Notifications', emailNotifications, setEmailNotifications)}
+          {renderToggle('Dark Mode', darkMode, setDarkMode)}
+        </View>
 
-          {/* Privacy & Security */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Privacy & Security</Text>
-            {renderToggleItem({
-              icon: 'lock-outline',
-              iconColor: COLORS.secondary,
-              title: 'Private Profile',
-              description: 'Only you can see your complaints',
-              value: privateProfile,
-              onToggle: setPrivateProfile,
-              index: 2,
-            })}
-            {renderToggleItem({
-              icon: 'shield-check-outline',
-              iconColor: COLORS.accent,
-              title: 'Two-Factor Auth',
-              description: 'Extra security for your account',
-              value: twoFactorAuth,
-              onToggle: setTwoFactorAuth,
-              index: 3,
-            })}
-            {renderSettingItem({
-              icon: 'lock-reset',
-              iconColor: COLORS.primary,
-              title: 'Change Password',
-              description: 'Update your account password',
-              onPress: () =>
-                Alert.alert('Change Password', 'Password change coming soon!'),
-              index: 4,
-            })}
-          </View>
+        {/* PRIVACY */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Privacy & Security</Text>
+          {renderToggle('Private Profile', privateProfile, setPrivateProfile)}
+          {renderToggle('Two-Factor Authentication', twoFactor, setTwoFactor)}
 
-          {/* Display Settings */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Display</Text>
-            {renderToggleItem({
-              icon: 'moon-waning-crescent',
-              iconColor: '#6B7280',
-              title: 'Dark Mode',
-              description: 'Easy on the eyes',
-              value: darkMode,
-              onToggle: setDarkMode,
-              index: 5,
-            })}
-            {renderSettingItem({
-              icon: 'text-box-outline',
-              iconColor: COLORS.primary,
-              title: 'Font Size',
-              description: 'Adjust text size',
-              onPress: () => Alert.alert('Font Size', 'Font settings coming soon!'),
-              index: 6,
-            })}
-            {renderSettingItem({
-              icon: 'palette-outline',
-              iconColor: COLORS.primary,
-              title: 'Theme',
-              description: 'Choose your color theme',
-              onPress: () => Alert.alert('Theme', 'Theme settings coming soon!'),
-              index: 7,
-            })}
-          </View>
+          <TouchableOpacity style={styles.actionItem} onPress={() => setPasswordModal(true)}>
+            <Text style={styles.actionText}>Change Password</Text>
+            <Ionicons name="chevron-forward" size={18} />
+          </TouchableOpacity>
+        </View>
 
-          {/* Account Settings */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            {renderSettingItem({
-              icon: 'account-circle-outline',
-              iconColor: COLORS.primary,
-              title: 'Edit Profile',
-              description: 'Update your information',
-              onPress: () => navigation.navigate('EditProfile' as any),
-              index: 8,
-            })}
-            {renderSettingItem({
-              icon: 'credit-card-outline',
-              iconColor: COLORS.warning,
-              title: 'Payment Methods',
-              description: 'Manage your payment information',
-              onPress: () =>
-                Alert.alert('Payment', 'Payment settings coming soon!'),
-              index: 9,
-            })}
-            {renderSettingItem({
-              icon: 'download-outline',
-              iconColor: COLORS.primary,
-              title: 'Download Data',
-              description: 'Export your data',
-              onPress: () =>
-                Alert.alert('Download Data', 'Data export coming soon!'),
-              index: 10,
-            })}
-          </View>
+        {/* HELP */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Help & Support</Text>
 
-          {/* Help & Support */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Help & Support</Text>
-            {renderSettingItem({
-              icon: 'help-circle-outline',
-              iconColor: COLORS.accent,
-              title: 'Help Center',
-              description: 'Browse FAQs and guides',
-              onPress: () => Alert.alert('Help Center', 'Help coming soon!'),
-              index: 11,
-            })}
-            {renderSettingItem({
-              icon: 'bug-outline',
-              iconColor: COLORS.secondary,
-              title: 'Report a Bug',
-              description: 'Help us improve the app',
-              onPress: () =>
-                Alert.alert(
-                  'Report Bug',
-                  'Please describe the issue:\n\n(Bug reporting form would appear here)',
-                  [{ text: 'OK' }]
-                ),
-              index: 12,
-            })}
-            {renderSettingItem({
-              icon: 'information-outline',
-              iconColor: COLORS.primary,
-              title: 'About App',
-              description: 'Version 1.0.0 • Terms & Privacy',
-              onPress: () =>
-                Alert.alert('About', 'Student Redressal Version 1.0.0'),
-              index: 13,
-            })}
-          </View>
+          {faqs.map((f, i) => (
+            <View key={i} style={styles.faqItem}>
+              <TouchableOpacity onPress={() => toggleFaq(i)} style={styles.faqHeader}>
+                <Text style={styles.faqQ}>{f.q}</Text>
+                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} />
+              </TouchableOpacity>
+              {openFaqIndex === i && <Text style={styles.faqA}>{f.a}</Text>}
+            </View>
+          ))}
 
-          {/* Logout Button */}
-          <View style={styles.section}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="log-out-outline" size={20} color={COLORS.surface} />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL('mailto:support@studentredressal.edu')}>
+            <Ionicons name="mail-outline" size={18} color="#fff" />
+            <Text style={styles.contactText}>Email Support</Text>
+          </TouchableOpacity>
 
-          {/* App Version */}
-          <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>App Version 1.0.0</Text>
-            <Text style={styles.footerSubText}>© 2026 Student Redressal System</Text>
-          </View>
-        </Animated.View>
+          <TouchableOpacity style={[styles.contactBtn, { marginTop: 10 }]} onPress={() => Linking.openURL('tel:+254700000000')}>
+            <Ionicons name="call-outline" size={18} color="#fff" />
+            <Text style={styles.contactText}>Call Support</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.contactBtn, { marginTop: 10 }]} onPress={() => setSupportModal(true)}>
+            <Ionicons name="chatbox-ellipses-outline" size={18} color="#fff" />
+            <Text style={styles.contactText}>Send Message</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ABOUT */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('TermsConditions')}>
+            <Text style={styles.actionText}>Terms & Conditions</Text>
+            <Ionicons name="chevron-forward" size={18} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('PrivacyPolicy')}>
+            <Text style={styles.actionText}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={18} />
+          </TouchableOpacity>
+        </View>
+
+        {/* LOGOUT */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#fff" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* PASSWORD MODAL */}
+      <Modal visible={passwordModal} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <TextInput placeholder="Enter new password" secureTextEntry style={styles.input} value={newPassword} onChangeText={setNewPassword} />
+            {loadingPassword ? <ActivityIndicator /> : (
+              <TouchableOpacity style={styles.modalButton} onPress={handleChangePassword}>
+                <Text style={{ color: '#fff' }}>Update Password</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setPasswordModal(false)}>
+              <Text style={{ marginTop: 10, color: COLORS.secondary }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* SUPPORT MODAL */}
+      <Modal visible={supportModal} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Send Message</Text>
+            <TextInput placeholder="Write your message..." multiline style={[styles.input, { height: 120 }]} value={supportMessage} onChangeText={setSupportMessage} />
+            {loadingSupport ? <ActivityIndicator /> : (
+              <TouchableOpacity style={styles.modalButton} onPress={handleSendSupport}>
+                <Text style={{ color: '#fff' }}>Send</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setSupportModal(false)}>
+              <Text style={{ marginTop: 10, color: COLORS.secondary }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
+
+  function renderToggle(label: string, value: boolean, setter: any) {
+    return (
+      <View style={styles.toggleItem}>
+        <Text style={styles.toggleText}>{label}</Text>
+        <Switch value={value} onValueChange={setter} />
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    paddingHorizontal: 12,
-    paddingTop: Platform.OS === 'ios' ? 70 : 50,
-    paddingBottom: 32,
-  },
-
-  // Profile Card
-  profileCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    marginBottom: 28,
-    padding: 18,
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 16,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.surface,
-  },
-  editAvatarButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: COLORS.primary,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.surface,
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: COLORS.textLight,
-    marginBottom: 6,
-  },
-  regNoContainer: {
-    flexDirection: 'row',
-  },
-  regNoLabel: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    fontWeight: '600',
-  },
-  regNoValue: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  editProfileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Profile Stats
-  profileStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.primary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    fontWeight: '600',
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.border,
-  },
-
-  // Sections
-  section: {
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 16,
-    marginLeft: 4,
-    letterSpacing: 0.3,
-  },
-
-  // Setting Items
-  settingItemWrapper: {
-    marginBottom: 12,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 0,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  settingIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  settingContent: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 2,
-    lineHeight: 18,
-  },
-  settingDescription: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    fontWeight: '500',
-  },
-
-  // Logout Button
-  logoutButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.secondary,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 0,
-    shadowColor: COLORS.secondary,
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.surface,
-    marginLeft: 8,
-    letterSpacing: 0.3,
-  },
-
-  // Footer
-  footerContainer: {
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  footerText: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  footerSubText: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    fontWeight: '500',
-  },
+  container: { flex: 1, backgroundColor: COLORS.background,paddingTop: 20 },
+  profileCard: { backgroundColor: COLORS.surface, padding: 20, borderRadius: 16, margin: 16 },
+  profileHeader: { flexDirection: 'row', alignItems: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  cameraIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, borderRadius: 12, padding: 4 },
+  name: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  email: { fontSize: 13, color: COLORS.textLight },
+  reg: { fontSize: 12, color: COLORS.primary },
+  section: { paddingHorizontal: 20, marginBottom: 25 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+  toggleItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 10 },
+  toggleText: { fontWeight: '600' },
+  actionItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 10 },
+  actionText: { fontWeight: '600' },
+  faqItem: { backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 8 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+  faqQ: { fontWeight: '600' },
+  faqA: { marginTop: 8, color: '#555' },
+  contactBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, padding: 12, borderRadius: 10 },
+  contactText: { color: '#fff', marginLeft: 6 },
+  logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.secondary, padding: 15, borderRadius: 15, marginHorizontal: 20, marginBottom: 30 },
+  logoutText: { color: '#fff', fontSize: 16, fontWeight: '700', marginLeft: 8 },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalBox: { backgroundColor: '#fff', padding: 20, borderRadius: 15 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12 },
+  modalButton: { backgroundColor: COLORS.primary, padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 15 },
 });

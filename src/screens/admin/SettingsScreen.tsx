@@ -1,64 +1,137 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  Image,
-  Alert,
   ScrollView,
+  TouchableOpacity,
   Switch,
+  Alert,
+  Image,
   Platform,
-  TextInput,
   LayoutAnimation,
   UIManager,
+  Linking,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  StatusBar,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { ProfileContext } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../../services/supabase';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+const COLORS = {
+  primary: '#1E5F9E',
+  secondary: '#FF3B30',
+  background: '#F4F7FB',
+  surface: '#FFFFFF',
+  text: '#0F3057',
+  textLight: '#6B7280',
+  border: '#E5E7EB',
+};
+
 const faqs = [
   { q: 'How do I assign a complaint?', a: 'Open the complaint and tap Assign. Choose a staff member to assign.' },
-  { q: 'How to escalate?', a: 'Open the complaint and select Escalate to notify higher admins.' },
-  { q: 'How to change my profile?', a: 'Tap your avatar to update your profile photo and edit details in profile screen.' },
+  { q: 'How to escalate an issue?', a: 'Open the complaint and select Escalate to notify higher authorities.' },
+  { q: 'How do I update my profile?', a: 'Tap your avatar to change your photo or use the edit button to modify details.' },
 ];
 
-export default function SettingsScreen({ navigation }: any) {
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+export default function SettingsScreen() {
+  const navigation = useNavigation<any>();
+  const { profile, setProfile } = useContext(ProfileContext);
+  const { logout } = useAuth();
 
+  const [notifications, setNotifications] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [privateProfile, setPrivateProfile] = useState(false);
+  const [twoFactor, setTwoFactor] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
-  const [contactName, setContactName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactMsg, setContactMsg] = useState('');
+
+  const [passwordModal, setPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [loadingPassword, setLoadingPassword] = useState(false);
+
+  const [supportModal, setSupportModal] = useState(false);
+  const [supportMessage, setSupportMessage] = useState('');
+  const [loadingSupport, setLoadingSupport] = useState(false);
+
+  const headerScale = useSharedValue(0.9);
+  const headerOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    headerScale.value = withSpring(1);
+    headerOpacity.value = withTiming(1, { duration: 400 });
+  }, []);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: headerScale.value }],
+    opacity: headerOpacity.value,
+  }));
 
   const handleUploadPhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please allow access to photo library');
-        return;
-      }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow gallery access.');
+      return;
+    }
 
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setProfileImage(result.assets[0].uri as string);
-        Alert.alert('Success', 'Profile image updated!');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Could not open photo library');
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfile({ image: result.assets[0].uri });
+      Alert.alert('Success', 'Profile updated successfully.');
     }
   };
 
-  const { logout } = useAuth();
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [ { text: 'Cancel', style: 'cancel' }, { text: 'Logout', style: 'destructive', onPress: logout } ]);
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters.');
+      return;
+    }
+    setLoadingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoadingPassword(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Success', 'Password updated successfully.');
+      setPasswordModal(false);
+      setNewPassword('');
+    }
+  };
+
+  const handleSendSupport = async () => {
+    if (!supportMessage) {
+      Alert.alert('Error', 'Please enter a message.');
+      return;
+    }
+    setLoadingSupport(true);
+    const { error } = await supabase
+      .from('support_messages')
+      .insert([{ message: supportMessage, admin_email: profile.email }]);
+    setLoadingSupport(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Success', 'Message sent successfully.');
+      setSupportModal(false);
+      setSupportMessage('');
+    }
   };
 
   const toggleFaq = (i: number) => {
@@ -66,88 +139,196 @@ export default function SettingsScreen({ navigation }: any) {
     setOpenFaqIndex(openFaqIndex === i ? null : i);
   };
 
-  const submitContact = () => {
-    if (!contactName || !contactEmail || !contactMsg) { Alert.alert('Incomplete', 'Please fill all fields.'); return; }
-    Alert.alert('Message sent', 'Support will contact you shortly (simulated).');
-    setContactName(''); setContactEmail(''); setContactMsg('');
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back-outline" size={24} color="#0F3057" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={styles.profileSection}>
-          <TouchableOpacity style={styles.profileButton} onPress={handleUploadPhoto}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profileAvatar} />
-            ) : (
-              <View style={styles.profileAvatar}><Ionicons name="person-circle-outline" size={80} color="#1E5F9E" /></View>
-            )}
-            <View style={styles.profileCamera}><Ionicons name="camera" size={20} color="#fff" /></View>
-          </TouchableOpacity>
-          <Text style={styles.adminName}>Admin Name</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* PROFILE HEADER */}
+        <Animated.View style={[styles.profileCard, headerStyle]}>
+          <View style={styles.profileHeader}>
+            <TouchableOpacity onPress={handleUploadPhoto}>
+              {profile.image ? (
+                <Image source={{ uri: profile.image }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Ionicons name="person" size={40} color="#fff" />
+                </View>
+              )}
+              <View style={styles.cameraIcon}>
+                <Ionicons name="camera" size={16} color="#fff" />
+              </View>
+            </TouchableOpacity>
+
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={styles.name}>{profile.name}</Text>
+              <Text style={styles.email}>{profile.email}</Text>
+            </View>
+
+            <TouchableOpacity onPress={() => navigation.navigate('AdminProfile')}>
+              <Ionicons name="pencil" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* PREFERENCES */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          {renderToggle('Push Notifications', notifications, setNotifications)}
+          {renderToggle('Email Notifications', emailNotifications, setEmailNotifications)}
+          {renderToggle('Dark Mode', darkMode, setDarkMode)}
         </View>
 
-        <View style={styles.settingsSection}>
-          <View style={styles.settingItem}><Text style={styles.settingLabel}>Enable Notifications</Text><Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} trackColor={{ true: '#1E5F9E', false: '#ccc' }} thumbColor={Platform.OS === 'android' ? '#fff' : undefined} /></View>
-          <View style={styles.settingItem}><Text style={styles.settingLabel}>Dark Mode</Text><Switch value={darkModeEnabled} onValueChange={setDarkModeEnabled} trackColor={{ true: '#1E5F9E', false: '#ccc' }} thumbColor={Platform.OS === 'android' ? '#fff' : undefined} /></View>
+        {/* PRIVACY */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Privacy & Security</Text>
+          {renderToggle('Private Profile', privateProfile, setPrivateProfile)}
+          {renderToggle('Two-Factor Authentication', twoFactor, setTwoFactor)}
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => setPasswordModal(true)}>
+            <Text style={styles.actionText}>Change Password</Text>
+            <Ionicons name="chevron-forward" size={18} />
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.helpSection}>
+        {/* HELP */}
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Help & Support</Text>
-          <Text style={styles.helpIntro}>Find quick answers or contact support directly.</Text>
 
           {faqs.map((f, i) => (
             <View key={i} style={styles.faqItem}>
-              <TouchableOpacity onPress={() => toggleFaq(i)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => toggleFaq(i)} style={styles.faqHeader}>
                 <Text style={styles.faqQ}>{f.q}</Text>
-                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} color="#777" />
+                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} />
               </TouchableOpacity>
               {openFaqIndex === i && <Text style={styles.faqA}>{f.a}</Text>}
             </View>
           ))}
 
-          <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Contact Support</Text>
-          <TextInput style={styles.input} placeholder="Your name" value={contactName} onChangeText={setContactName} />
-          <TextInput style={styles.input} placeholder="Your email" value={contactEmail} onChangeText={setContactEmail} keyboardType="email-address" />
-          <TextInput style={[styles.input, { height: 100 }]} placeholder="Message" value={contactMsg} onChangeText={setContactMsg} multiline />
-          <TouchableOpacity style={styles.sendBtn} onPress={submitContact}><Text style={{ color: '#fff' }}>Send Message</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.contactBtn} onPress={() => Linking.openURL('mailto:support@studentredressal.edu')}>
+            <Ionicons name="mail-outline" size={18} color="#fff" />
+            <Text style={styles.contactText}>Email Support</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.contactBtn, { marginTop: 10 }]} onPress={() => Linking.openURL('tel:+254700000000')}>
+            <Ionicons name="call-outline" size={18} color="#fff" />
+            <Text style={styles.contactText}>Call Support</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.contactBtn, { marginTop: 10 }]} onPress={() => setSupportModal(true)}>
+            <Ionicons name="chatbox-ellipses-outline" size={18} color="#fff" />
+            <Text style={styles.contactText}>Send Message</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}><Ionicons name="log-out-outline" size={20} color="#fff" /><Text style={styles.logoutText}>Logout</Text></TouchableOpacity>
+        {/* ABOUT */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('TermsConditions')}>
+            <Text style={styles.actionText}>Terms & Conditions</Text>
+            <Ionicons name="chevron-forward" size={18} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('PrivacyPolicy')}>
+            <Text style={styles.actionText}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={18} />
+          </TouchableOpacity>
+        </View>
+
+        {/* LOGOUT */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#fff" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* PASSWORD MODAL */}
+      <Modal visible={passwordModal} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <TextInput placeholder="Enter new password" secureTextEntry style={styles.input} value={newPassword} onChangeText={setNewPassword} />
+            {loadingPassword ? <ActivityIndicator /> : (
+              <TouchableOpacity style={styles.modalButton} onPress={handleChangePassword}>
+                <Text style={{ color: '#fff' }}>Update Password</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setPasswordModal(false)}>
+              <Text style={{ marginTop: 10, color: COLORS.secondary }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* SUPPORT MODAL */}
+      <Modal visible={supportModal} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Send Message</Text>
+            <TextInput placeholder="Write your message..." multiline style={[styles.input, { height: 120 }]} value={supportMessage} onChangeText={setSupportMessage} />
+            {loadingSupport ? <ActivityIndicator /> : (
+              <TouchableOpacity style={styles.modalButton} onPress={handleSendSupport}>
+                <Text style={{ color: '#fff' }}>Send</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setSupportModal(false)}>
+              <Text style={{ marginTop: 10, color: COLORS.secondary }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
+
+  function renderToggle(label: string, value: boolean, setter: any) {
+    return (
+      <View style={styles.toggleItem}>
+        <Text style={styles.toggleText}>{label}</Text>
+        <Switch value={value} onValueChange={setter} />
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7FB' },
-  container: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
-  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#0F3057' },
-  backBtn: { padding: 4 },
-  profileSection: { alignItems: 'center', marginBottom: 20 },
-  profileButton: { position: 'relative' },
-  profileAvatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#1E5F9E', justifyContent: 'center', alignItems: 'center' },
-  profileCamera: { position: 'absolute', right: -6, bottom: -6, backgroundColor: '#1E5F9E', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#F4F7FB' },
-  adminName: { fontSize: 20, fontWeight: '700', color: '#0F3057', marginTop: 12 },
-  settingsSection: { marginBottom: 20 },
-  settingItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 12 },
-  settingLabel: { fontSize: 16, color: '#0F3057', fontWeight: '600' },
-  helpSection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#0F3057', marginBottom: 8 },
-  helpIntro: { color: '#666', marginBottom: 12 },
-  faqItem: { backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 8 },
-  faqQ: { color: '#0F3057', fontWeight: '600' },
-  faqA: { marginTop: 8, color: '#555' },
-  input: { backgroundColor: '#fff', padding: 12, borderRadius: 10, marginBottom: 10 },
-  sendBtn: { backgroundColor: '#1E5F9E', padding: 12, borderRadius: 10, alignItems: 'center', marginBottom: 20 },
-  logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 15 },
+  container: { flex: 1, backgroundColor: COLORS.background, paddingTop: 35 },
+  profileCard: {
+    backgroundColor: COLORS.surface,
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  profileHeader: { flexDirection: 'row', alignItems: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  cameraIcon: { position: 'absolute', right: 0, bottom: 0, backgroundColor: COLORS.primary, width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  name: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  email: { color: COLORS.textLight, marginTop: 4 },
+  section: { marginVertical: 12, paddingHorizontal: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
+  toggleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
+  toggleText: { color: COLORS.text, fontSize: 15 },
+  actionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
+  actionText: { fontSize: 15, color: COLORS.text },
+  faqItem: { backgroundColor: COLORS.surface, padding: 12, borderRadius: 10, marginBottom: 8 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  faqQ: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  faqA: { marginTop: 6, color: COLORS.textLight },
+  contactBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, padding: 12, borderRadius: 10, marginTop: 6 },
+  contactText: { color: '#fff', marginLeft: 8 },
+  logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.secondary, padding: 15, margin: 16, borderRadius: 12 },
   logoutText: { color: '#fff', fontSize: 16, fontWeight: '700', marginLeft: 8 },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalBox: { width: '85%', backgroundColor: COLORS.surface, padding: 20, borderRadius: 12 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: COLORS.text },
+  input: { backgroundColor: '#f2f2f2', padding: 12, borderRadius: 8, marginBottom: 12 },
+  modalButton: { backgroundColor: COLORS.primary, padding: 12, alignItems: 'center', borderRadius: 8, marginTop: 8 },
 });

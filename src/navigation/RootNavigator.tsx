@@ -7,6 +7,8 @@ import StudentNavigator from './StudentNavigator';
 import AdminNavigator from './AdminBottomTabs';
 import StaffNavigator from './StaffNavigator';
 import SplashScreenPage from '../screens/SplashScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../services/supabase';
 
 type UserRole = 'student' | 'admin' | 'staff' | null;
 
@@ -16,63 +18,65 @@ export default function RootNavigator() {
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching user role from async storage or API
-    const fetchUserRole = async () => {
+    // Clear any previously stored role so every launch starts at login
+    const init = async () => {
       try {
-        // Replace this with actual fetch logic
-        const storedRole = await new Promise<UserRole>((resolve) =>
-          setTimeout(() => resolve(null), 1000) // Simulated delay
-        );
-        setUserRole(storedRole);
+        await AsyncStorage.removeItem('userRole');
+      } catch (error) {
+        console.log('Error clearing role:', error);
       } finally {
+        setUserRole(null);
         setIsLoadingUser(false);
       }
     };
 
-    fetchUserRole();
+    init();
 
     // Splash screen timer
     const timer = setTimeout(() => setIsSplashVisible(false), 3000);
-
     return () => clearTimeout(timer);
   }, []);
 
-  // 1️⃣ Show Splash First
-  if (isSplashVisible) {
+  // Logout function (used by AuthContext)
+  const handleLogout = async () => {
+    try {
+      // also sign out from Supabase so session is cleared
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.log('supabase signOut error', err);
+    }
+    AsyncStorage.removeItem('userRole'); // Clear stored role
+    setUserRole(null); // This will automatically show AuthNavigator
+  };
+
+  // Show splash screen first
+  if (isSplashVisible || isLoadingUser) {
     return <SplashScreenPage />;
   }
 
-  // 2️⃣ Show loading state while fetching user role
-  if (isLoadingUser) {
-    return <SplashScreenPage />; // Could replace with a loading spinner
-  }
-
-  // 3️⃣ After Splash & loading → Show Navigation
-  const handleLogout = () => {
-    setUserRole(null);
-  };
-
   return (
     <NavigationContainer>
-      <AuthProvider logout={handleLogout}>
+      <AuthProvider logout={handleLogout} />
+      {userRole ? (
+        // Only authenticated users get ProfileProvider
         <ProfileProvider>
           {userRole === 'student' && <StudentNavigator />}
           {userRole === 'admin' && <AdminNavigator />}
           {userRole === 'staff' && <StaffNavigator />}
-          {!userRole && (
-            <AuthNavigator
-              setUserRole={(role: string) => {
-                // Only accept valid roles
-                if (role === 'student' || role === 'admin' || role === 'staff') {
-                  setUserRole(role);
-                } else {
-                  console.warn(`Invalid role: ${role}`);
-                }
-              }}
-            />
-          )}
         </ProfileProvider>
-      </AuthProvider>
+      ) : (
+        // Unauthenticated users see AuthNavigator
+        <AuthNavigator
+          setUserRole={async (role: string) => {
+            if (role === 'student' || role === 'admin' || role === 'staff') {
+              await AsyncStorage.setItem('userRole', role);
+              setUserRole(role);
+            } else {
+              console.warn(`Invalid role: ${role}`);
+            }
+          }}
+        />
+      )}
     </NavigationContainer>
   );
 }

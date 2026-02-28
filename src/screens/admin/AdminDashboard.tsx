@@ -123,7 +123,7 @@ export default function AdminDashboard({ navigation }: any) {
             </View>
 
             <View style={styles.topIcons}>
-              <TouchableOpacity onPress={() => navigation.replace('Login')} style={{ marginRight: 8 }}>
+              <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
                 <Ionicons name="log-out-outline" size={26} color="#0F3057" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('AdminProfile')}>

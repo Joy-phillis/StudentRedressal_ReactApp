@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   View,
@@ -22,17 +22,40 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ProfileContext } from '../../context/ProfileContext';
+import { supabase } from '../../services/supabase';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-const dummyComplaints = [
-  { id: '1', title: 'Library Issue', status: 'Pending' },
-  { id: '2', title: 'Cafeteria Food', status: 'Resolved' },
-  { id: '3', title: 'Lab Equipment Broken', status: 'In-Progress' },
-];
-
 export default function StudentHome({ navigation }: any) {
   const { profile, setProfile } = useContext(ProfileContext);
+  const { logout } = useAuth();
+
+  // 🔹 NEW STATES (for Supabase data)
+  const [complaints, setComplaints] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [resolvedCount, setResolvedCount] = useState(0);
+
+  // 🔹 FETCH FROM SUPABASE
+  const fetchComplaints = async () => {
+    const { data, error } = await supabase
+      .from('complaints')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.log('Fetch error:', error.message);
+      return;
+    }
+
+    if (data) {
+      setComplaints(data.slice(0, 5)); // latest 5 only
+      setTotalCount(data.length);
+      setPendingCount(data.filter(item => item.status === 'Pending').length);
+      setResolvedCount(data.filter(item => item.status === 'Resolved').length);
+    }
+  };
 
   const handleUploadPhoto = async () => {
     try {
@@ -58,7 +81,8 @@ export default function StudentHome({ navigation }: any) {
       Alert.alert('Error', 'Could not open photo library');
     }
   };
-  // Animations
+
+  // Animations (UNCHANGED)
   const headerOpacity = useSharedValue(0);
   const statsTranslate = useSharedValue(50);
   const actionsScale = useSharedValue(0.8);
@@ -71,7 +95,16 @@ export default function StudentHome({ navigation }: any) {
     actionsScale.value = withSpring(1, { damping: 12, stiffness: 90 });
     complaintsScale.value = withSpring(1, { damping: 12, stiffness: 90 });
     announcementsTranslate.value = withSpring(0, { damping: 12, stiffness: 90 });
+
+    fetchComplaints(); // 🔹 added
   }, []);
+
+  // 🔹 Refresh when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      fetchComplaints();
+    }, [])
+  );
 
   const headerStyle = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
@@ -94,8 +127,6 @@ export default function StudentHome({ navigation }: any) {
     transform: [{ translateY: announcementsTranslate.value }],
   }));
 
-  const { logout } = useAuth();
-
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
@@ -107,6 +138,7 @@ export default function StudentHome({ navigation }: any) {
     let bgColor = '#1E5F9E';
     if (item.status === 'Pending') bgColor = '#FF9800';
     if (item.status === 'Resolved') bgColor = '#4CAF50';
+
     return (
       <Animated.View style={[styles.complaintCard, { backgroundColor: bgColor }, complaintsStyle]}>
         <Text style={styles.complaintTitle}>{item.title}</Text>
@@ -124,7 +156,7 @@ export default function StudentHome({ navigation }: any) {
           <Text style={styles.subtitle}>Student Redressal Dashboard</Text>
         </View>
         <View style={styles.topIcons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.iconButton, { marginRight: 8 }]}
             onPress={() => navigation.navigate('Notifications')}
           >
@@ -143,7 +175,9 @@ export default function StudentHome({ navigation }: any) {
                 <Image source={{ uri: profile.image }} style={styles.profileAvatar} />
               ) : (
                 <View style={styles.profileAvatar}>
-                  <Text style={styles.profileAvatarText}>{profile.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</Text>
+                  <Text style={styles.profileAvatarText}>
+                    {profile.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -159,9 +193,9 @@ export default function StudentHome({ navigation }: any) {
       {/* Quick Stats */}
       <Animated.View style={[styles.statsContainer, statsStyle]}>
         {[
-          { icon: 'document-text-outline', label: 'Total Complaints', value: 12, color: '#1E5F9E' },
-          { icon: 'time-outline', label: 'Pending', value: 3, color: '#FF9800' },
-          { icon: 'checkmark-circle-outline', label: 'Resolved', value: 9, color: '#4CAF50' },
+          { icon: 'document-text-outline', label: 'Total Complaints', value: totalCount, color: '#1E5F9E' },
+          { icon: 'time-outline', label: 'Pending', value: pendingCount, color: '#FF9800' },
+          { icon: 'checkmark-circle-outline', label: 'Resolved', value: resolvedCount, color: '#4CAF50' },
         ].map((stat, idx) => (
           <View key={idx} style={[styles.statCard, { backgroundColor: stat.color }]}>
             <Ionicons name={stat.icon as any} size={28} color="#fff" />
@@ -192,7 +226,7 @@ export default function StudentHome({ navigation }: any) {
       {/* Recent Complaints */}
       <Text style={styles.sectionTitle}>Recent Complaints</Text>
       <FlatList
-        data={dummyComplaints}
+        data={complaints}
         keyExtractor={item => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}

@@ -14,7 +14,10 @@ export default function AdminProfile({ navigation }: any) {
 
   const { logout } = useAuth();
   const handleLogout = () => {
-    logout();
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
   };
 
   return (

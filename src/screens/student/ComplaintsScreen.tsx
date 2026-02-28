@@ -25,6 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../../services/supabase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,11 +45,7 @@ const COLORS = {
   error: '#EF4444',
 };
 
-const dummyHistory = [
-  { id: '1', reg: '2023001', title: 'Library Noise Issue', name: 'Alice Johnson', course: 'BSc CS', status: 'Pending', date: '2026-02-20', category: 'Library' },
-  { id: '2', reg: '2023002', title: 'Cafeteria Food Quality', name: 'Bob Smith', course: 'BCom', status: 'Resolved', date: '2026-02-18', category: 'Cafeteria' },
-  { id: '3', reg: '2023003', title: 'Lab Equipment Malfunction', name: 'Carol Lee', course: 'BSc Physics', status: 'In-Progress', date: '2026-02-15', category: 'Lab' },
-];
+
 
 export default function ComplaintsScreen() {
   const navigation = useNavigation<any>();
@@ -64,7 +61,7 @@ export default function ComplaintsScreen() {
   const [urgency, setUrgency] = useState('Normal');
   const [errors, setErrors] = useState<any>({});
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState(dummyHistory);
+  const [history, setHistory] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(true);
 
   // Animations
@@ -76,14 +73,42 @@ export default function ComplaintsScreen() {
   const historyOpacity = useSharedValue(0);
   const submitScale = useSharedValue(1);
 
-  useEffect(() => {
-    headerScale.value = withSpring(1, { damping: 13, stiffness: 100 });
-    headerOpacity.value = withTiming(1, { duration: 400 });
-    formTranslate.value = withTiming(0, { duration: 500 });
-    formOpacity.value = withTiming(1, { duration: 500 });
-    historyTranslate.value = withTiming(0, { duration: 600 });
-    historyOpacity.value = withTiming(1, { duration: 600 });
-  }, []);
+ useEffect(() => {
+  headerScale.value = withSpring(1, { damping: 13, stiffness: 100 });
+  headerOpacity.value = withTiming(1, { duration: 400 });
+  formTranslate.value = withTiming(0, { duration: 500 });
+  formOpacity.value = withTiming(1, { duration: 500 });
+  historyTranslate.value = withTiming(0, { duration: 600 });
+  historyOpacity.value = withTiming(1, { duration: 600 });
+
+  fetchComplaints(); // ✅ added
+}, []);
+const fetchComplaints = async () => {
+  const { data, error } = await supabase
+    .from('complaints')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.log('Fetch error:', error.message);
+    return;
+  }
+
+  if (data) {
+    const formatted = data.map((item) => ({
+      id: item.id,
+      reg: item.registration_number,
+      title: item.title,
+      name: item.full_name,
+      course: item.course,
+      status: item.status,
+      date: item.created_at.slice(0, 10),
+      category: item.category,
+    }));
+
+    setHistory(formatted);
+  }
+};
 
   const headerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: headerScale.value }],
@@ -116,43 +141,71 @@ export default function ComplaintsScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (!validateForm()) return;
-    
-    setSubmitting(true);
-    submitScale.value = withSpring(0.95, { damping: 12, stiffness: 100 });
+const handleSubmit = async () => {
+  if (!validateForm()) return;
 
-    setTimeout(() => {
-      submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
-      setSubmitting(false);
-      Alert.alert(
-        'Success ✓',
-        'Your complaint has been submitted successfully!',
-        [{ text: 'OK' }]
-      );
-      const newComplaint = {
-        id: (history.length + 1).toString(),
-        reg: regNo,
-        title: title,
-        name: fullName,
+  setSubmitting(true);
+  submitScale.value = withSpring(0.95, { damping: 12, stiffness: 100 });
+
+  const { data, error } = await supabase
+    .from('complaints')
+    .insert([
+      {
+        registration_number: regNo,
+        full_name: fullName,
+        gender,
+        year,
         course,
-        status: 'Pending',
-        date: new Date().toISOString().slice(0, 10),
-        category: category,
-      };
-      setHistory([newComplaint, ...history]);
-      // Reset form
-      setRegNo('');
-      setFullName('');
-      setGender('Male');
-      setYear('1');
-      setCourse('');
-      setTitle('');
-      setCategory('Library');
-      setDescription('');
-      setUrgency('Normal');
-    }, 1000);
-  };
+        title,
+        category,
+        description,
+        urgency,
+      },
+    ])
+    .select();
+
+  submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+  setSubmitting(false);
+
+  if (error) {
+    Alert.alert('Error', error.message);
+    return;
+  }
+
+  Alert.alert(
+    'Success ✓',
+    'Your complaint has been submitted successfully!',
+    [{ text: 'OK' }]
+  );
+
+  if (data && data.length > 0) {
+    const newComplaint = data[0];
+
+    const formattedComplaint = {
+      id: newComplaint.id,
+      reg: newComplaint.registration_number,
+      title: newComplaint.title,
+      name: newComplaint.full_name,
+      course: newComplaint.course,
+      status: newComplaint.status,
+      date: newComplaint.created_at.slice(0, 10),
+      category: newComplaint.category,
+    };
+
+    setHistory((prev) => [formattedComplaint, ...prev]);
+  }
+
+  // Reset form (unchanged)
+  setRegNo('');
+  setFullName('');
+  setGender('Male');
+  setYear('1');
+  setCourse('');
+  setTitle('');
+  setCategory('Library');
+  setDescription('');
+  setUrgency('Normal');
+};
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -397,10 +450,14 @@ export default function ComplaintsScreen() {
                       onValueChange={setCategory}
                     >
                       <Picker.Item label="Library" value="Library" />
-                      <Picker.Item label="Cafeteria" value="Cafeteria" />
-                      <Picker.Item label="Lab" value="Lab" />
+                      <Picker.Item label="SCIT Department" value="SCIT Department" />
+                      <Picker.Item label="SESS Department" value="SESS Department" />
                       <Picker.Item label="Hostel" value="Hostel" />
-                      <Picker.Item label="Transport" value="Transport" />
+                      <Picker.Item label="Finance" value="Finance" />
+                      <Picker.Item label="Security" value="Security" />
+                      <Picker.Item label="Mess" value="Mess" />
+                      <Picker.Item label="Marks" value="Marks" />
+                      <Picker.Item label="Other" value="Other" />
                     </Picker>
                   </View>
                 </View>
