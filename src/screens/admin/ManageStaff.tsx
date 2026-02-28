@@ -119,7 +119,7 @@ export default function ManageStaff({ navigation }: any) {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={closeModal}>
+            <TouchableOpacity style={{ marginTop: 12, alignSelf: 'center' }} onPress={closeModal}> 
               <Text style={{ color: '#1E5F9E' }}>Close</Text>
             </TouchableOpacity>
           </View>

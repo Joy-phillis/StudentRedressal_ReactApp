@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   View,
@@ -17,19 +17,33 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing } from 'react-native-reanimated';
+import { supabase } from '../../services/supabase';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-const recentComplaints = [
-  { id: '1', title: 'Hostel Electricity Issue', status: 'Overdue' },
-  { id: '2', title: 'Cafeteria Hygiene', status: 'Pending' },
-  { id: '3', title: 'Projector Not Working', status: 'In-Progress' },
-  { id: '4', title: 'Library Noise Complaint', status: 'Resolved' },
-];
-
 export default function AdminDashboard({ navigation }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const { logout } = useAuth();
 
+  // 🔹 DATABASE STATES
+  const [kpis, setKpis] = useState([
+    { label: 'Students', value: 0 },
+    { label: 'Staff', value: 0 },
+    { label: 'Complaints', value: 0 },
+    { label: 'Escalations', value: 0 },
+  ]);
+
+  const [breakdown, setBreakdown] = useState([
+    { label: 'Pending', value: 0, color: '#FF9800' },
+    { label: 'In-Progress', value: 0, color: '#1E5F9E' },
+    { label: 'Resolved', value: 0, color: '#4CAF50' },
+    { label: 'Overdue', value: 0, color: '#FF3B30' },
+  ]);
+
+  const [recentComplaints, setRecentComplaints] = useState<any[]>([]);
+
+  // 🔹 ANIMATIONS (UNCHANGED)
   const fade = useSharedValue(0);
   const slide = useSharedValue(40);
 
@@ -43,7 +57,71 @@ export default function AdminDashboard({ navigation }: any) {
     transform: [{ translateY: slide.value }],
   }));
 
-  const { logout } = useAuth();
+  // 🔹 FETCH DASHBOARD DATA
+  const fetchDashboardData = async () => {
+    // USERS
+    const { data: users } = await supabase.from('profiles').select('role');
+
+    let students = 0;
+    let staff = 0;
+
+    if (users) {
+      students = users.filter(u => u.role === 'student').length;
+      staff = users.filter(u => u.role === 'staff').length;
+    }
+
+    // COMPLAINTS
+    const { data: complaints } = await supabase
+      .from('complaints')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    let pending = 0;
+    let inProgress = 0;
+    let resolved = 0;
+    let overdue = 0;
+
+    if (complaints) {
+      complaints.forEach(c => {
+        if (c.status === 'Pending') pending++;
+        if (c.status === 'In-Progress') inProgress++;
+        if (c.status === 'Resolved') resolved++;
+        if (c.status === 'Overdue') overdue++;
+      });
+
+      setRecentComplaints(
+        complaints.slice(0, 4).map(c => ({
+          id: c.id,
+          title: c.title,
+          status: c.status,
+        }))
+      );
+    }
+
+    setKpis([
+      { label: 'Students', value: students },
+      { label: 'Staff', value: staff },
+      { label: 'Complaints', value: complaints ? complaints.length : 0 },
+      { label: 'Escalations', value: overdue },
+    ]);
+
+    setBreakdown([
+      { label: 'Pending', value: pending, color: '#FF9800' },
+      { label: 'In-Progress', value: inProgress, color: '#1E5F9E' },
+      { label: 'Resolved', value: resolved, color: '#4CAF50' },
+      { label: 'Overdue', value: overdue, color: '#FF3B30' },
+    ]);
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboardData();
+    }, [])
+  );
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -96,25 +174,13 @@ export default function AdminDashboard({ navigation }: any) {
     </TouchableOpacity>
   );
 
-  const kpis = [
-    { label: 'Students', value: 542 },
-    { label: 'Staff', value: 38 },
-    { label: 'Complaints', value: 126 },
-    { label: 'Escalations', value: 7 },
-  ];
-
-  const breakdown = [
-    { label: 'Pending', value: 24, color: '#FF9800' },
-    { label: 'In-Progress', value: 15, color: '#1E5F9E' },
-    { label: 'Resolved', value: 80, color: '#4CAF50' },
-    { label: 'Overdue', value: 7, color: '#FF3B30' },
-  ];
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
         <Animated.View style={[styles.container, animatedStyle]}>
+
+          {/* EVERYTHING BELOW IS 100% YOUR ORIGINAL UI — UNTOUCHED */}
 
           <View style={styles.header}>
             <View>
@@ -126,6 +192,7 @@ export default function AdminDashboard({ navigation }: any) {
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
                 <Ionicons name="log-out-outline" size={26} color="#0F3057" />
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('AdminProfile')}>
                 {profileImage ? (
                   <Image source={{ uri: profileImage }} style={styles.profileAvatar} />
@@ -147,7 +214,9 @@ export default function AdminDashboard({ navigation }: any) {
 
           <View style={styles.alertBox}>
             <Ionicons name="alert-circle-outline" size={22} color="#fff" />
-            <Text style={styles.alertText}>3 Complaints are overdue and require immediate attention.</Text>
+            <Text style={styles.alertText}>
+              {breakdown[3].value} Complaints are overdue and require immediate attention.
+            </Text>
           </View>
 
           <Text style={styles.sectionTitle}>System Overview</Text>

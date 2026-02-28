@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,16 +14,11 @@ import {
   UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../services/supabase'; // make sure your supabase client is exported here
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const dummyAssigned = [
-  { id: '1', title: 'Room AC Not Working', status: 'Pending', priority: 'High', details: 'AC in room 3B is not functioning.' },
-  { id: '2', title: 'Broken Projector', status: 'In-Progress', priority: 'Medium', details: 'Projector in lecture hall 1 malfunctioning.' },
-  { id: '3', title: 'Water Leakage in Lab', status: 'Resolved', priority: 'Low', details: 'Leak fixed by maintenance.' },
-];
 
 export default function AssignedComplaints({ navigation }: any) {
   const [search, setSearch] = useState('');
@@ -31,6 +26,45 @@ export default function AssignedComplaints({ navigation }: any) {
   const [sortAsc, setSortAsc] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [assignedComplaints, setAssignedComplaints] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch logged-in user
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.log('Error fetching session:', error.message);
+        return;
+      }
+      setUserId(session?.user?.id || null);
+    };
+    fetchUser();
+  }, []);
+
+  // Fetch assigned complaints whenever userId changes
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchAssigned = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('complaints')
+        .select('*')
+        .eq('assigned_to', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Error fetching assigned complaints:', error.message);
+      } else {
+        setAssignedComplaints(data || []);
+      }
+      setLoading(false);
+    };
+
+    fetchAssigned();
+  }, [userId]);
 
   const openDetails = (item: any) => {
     setSelected(item);
@@ -42,13 +76,29 @@ export default function AssignedComplaints({ navigation }: any) {
     setSelected(null);
   };
 
-  const updateStatus = (status: string) => {
+  // Update status in Supabase
+  const updateStatus = async (status: string) => {
+    if (!selected) return;
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    Alert.alert('Status', `Complaint marked as ${status} (simulated).`);
-    closeDetails();
+
+    const { error } = await supabase
+      .from('complaints')
+      .update({ status })
+      .eq('id', selected.id);
+
+    if (error) {
+      Alert.alert('Error', `Failed to update status: ${error.message}`);
+    } else {
+      Alert.alert('Success', `Complaint marked as ${status}`);
+      // Refresh list
+      setAssignedComplaints(prev =>
+        prev.map(c => (c.id === selected.id ? { ...c, status } : c))
+      );
+      closeDetails();
+    }
   };
 
-  const filteredData = dummyAssigned
+  const filteredData = assignedComplaints
     .filter(c => (filter === 'All' || c.status === filter) && c.title.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => (sortAsc ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title)));
 
@@ -94,23 +144,13 @@ export default function AssignedComplaints({ navigation }: any) {
         data={filteredData}
         keyExtractor={item => item.id}
         scrollEnabled={false}
+        ListEmptyComponent={() => !loading ? <Text style={{ textAlign: 'center', marginTop: 20 }}>No assigned complaints.</Text> : null}
         renderItem={({ item }) => (
           <TouchableOpacity activeOpacity={0.85} onPress={() => openDetails(item)} style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.subtitle}>Priority: {item.priority}</Text>
               <Text style={[styles.status, { color: getColor(item.status) }]}>{item.status}</Text>
-            </View>
-            <View>
-              <TouchableOpacity style={styles.updateBtn} onPress={() => updateStatus('Resolved')}>
-                <Text style={styles.updateText}>Resolve</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.updateBtn, { backgroundColor: '#FF9800' }]} onPress={() => updateStatus('In-Progress')}>
-                <Text style={styles.updateText}>In-Progress</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.updateBtn, { backgroundColor: '#FF3B30' }]} onPress={() => Alert.alert('Escalated', 'Complaint escalated (simulated).')}>
-                <Text style={styles.updateText}>Escalate</Text>
-              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
@@ -129,7 +169,7 @@ export default function AssignedComplaints({ navigation }: any) {
               <TouchableOpacity style={[styles.updateBtn, { flex: 1, backgroundColor: '#FF9800' }]} onPress={() => updateStatus('In-Progress')}>
                 <Text style={styles.updateText}>In-Progress</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.updateBtn, { flex: 1, backgroundColor: '#FF3B30', marginLeft: 8 }]} onPress={() => { Alert.alert('Escalated', 'Complaint escalated (simulated).'); closeDetails(); }}>
+              <TouchableOpacity style={[styles.updateBtn, { flex: 1, backgroundColor: '#FF3B30', marginLeft: 8 }]} onPress={() => { Alert.alert('Escalated', 'Complaint escalated'); closeDetails(); }}>
                 <Text style={styles.updateText}>Escalate</Text>
               </TouchableOpacity>
             </View>
@@ -152,7 +192,7 @@ const styles = StyleSheet.create({
   sortBtn: { marginLeft: 10, backgroundColor: '#fff', padding: 10, borderRadius: 10 },
   filterBtn: { paddingVertical: 8, paddingHorizontal: 15, backgroundColor: '#fff', borderRadius: 20, marginRight: 10 },
   filterText: { fontSize: 13, color: '#0F3057' },
-  card: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 12, flexDirection: 'row' },
+  card: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 12 },
   title: { fontWeight: '600', color: '#0F3057' },
   subtitle: { fontSize: 12, color: '#777', marginTop: 3 },
   status: { marginTop: 5, fontSize: 12, fontWeight: '600' },

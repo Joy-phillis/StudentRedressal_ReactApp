@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,17 +14,11 @@ import {
   UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../services/supabase';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const dummyComplaints = [
-  { id: '1', title: 'Broken Lab PC', student: 'John Doe', status: 'Pending', priority: 'High', details: 'Lab PC in room 204 not booting.' },
-  { id: '2', title: 'Hostel Water Issue', student: 'Mary Jane', status: 'In-Progress', priority: 'Medium', details: 'Low water pressure in block B.' },
-  { id: '3', title: 'Library AC Fault', student: 'Alex Kim', status: 'Resolved', priority: 'Low', details: 'AC serviced by maintenance team.' },
-  { id: '4', title: 'Cafeteria Hygiene', student: 'Daniel Ray', status: 'Overdue', priority: 'High', details: 'Repeated hygiene complaints from students.' },
-];
 
 export default function AllComplaints({ navigation }: any) {
   const [search, setSearch] = useState('');
@@ -33,38 +27,98 @@ export default function AllComplaints({ navigation }: any) {
   const [selected, setSelected] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  const [complaints, setComplaints] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
+
+  // Fetch complaints
+  const fetchComplaints = async () => {
+    const { data, error } = await supabase
+      .from('complaints')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setComplaints(data);
+  };
+
+  // Fetch staff
+  const fetchStaff = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('role', 'staff');
+    if (!error && data) setStaffList(data);
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+    fetchStaff();
+  }, []);
+
   const openDetails = (item: any) => {
     setSelected(item);
+    setSelectedStaff(item.assigned_to || null);
     setModalVisible(true);
   };
 
   const closeDetails = () => {
-    setModalVisible(false);
     setSelected(null);
+    setSelectedStaff(null);
+    setModalVisible(false);
   };
 
-  const assignToStaff = (complaintId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    Alert.alert('Assign', `Complaint ${complaintId} assigned to staff member (simulated).`);
-    closeDetails();
+  const assignToStaff = async () => {
+    if (!selectedStaff) {
+      Alert.alert('Error', 'Please select a staff member');
+      return;
+    }
+
+    if (selected?.assigned_to === selectedStaff) {
+      Alert.alert('Info', 'This staff is already assigned');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('complaints')
+      .update({ assigned_to: selectedStaff, status: 'In-Progress' })
+      .eq('id', selected?.id);
+
+    if (!error) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      Alert.alert('Success', 'Complaint assigned successfully!');
+      fetchComplaints();
+      closeDetails();
+    } else {
+      console.error(error);
+      Alert.alert('Failed', 'Failed to assign complaint. Try again.');
+    }
   };
 
-  const filteredData = dummyComplaints
-    .filter(c => (filter === 'All' || c.status === filter) && c.title.toLowerCase().includes(search.toLowerCase()))
+  const filteredData = complaints
+    .filter(
+      c =>
+        (filter === 'All' || c.status === filter) &&
+        c.title.toLowerCase().includes(search.toLowerCase())
+    )
     .sort((a, b) => (sortAsc ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title)));
 
   const getColor = (status: string) => {
     switch (status) {
-      case 'Pending': return '#FF9800';
-      case 'Resolved': return '#4CAF50';
-      case 'In-Progress': return '#1E5F9E';
-      case 'Overdue': return '#FF3B30';
-      default: return '#999';
+      case 'Pending':
+        return '#FF9800';
+      case 'Resolved':
+        return '#4CAF50';
+      case 'In-Progress':
+        return '#1E5F9E';
+      case 'Overdue':
+        return '#FF3B30';
+      default:
+        return '#999';
     }
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back-outline" size={24} color="#0F3057" />
@@ -73,63 +127,103 @@ export default function AllComplaints({ navigation }: any) {
         <View style={{ width: 24 }} />
       </View>
 
+      {/* Search & Sort */}
       <View style={styles.rowControls}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color="#777" />
-          <TextInput placeholder="Search complaints..." style={styles.input} value={search} onChangeText={setSearch} />
+          <TextInput
+            placeholder="Search complaints..."
+            style={styles.input}
+            value={search}
+            onChangeText={setSearch}
+          />
         </View>
         <TouchableOpacity style={styles.sortBtn} onPress={() => setSortAsc(s => !s)}>
           <Ionicons name={sortAsc ? 'arrow-up' : 'arrow-down'} size={20} color="#0F3057" />
         </TouchableOpacity>
       </View>
 
+      {/* Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 12 }}>
         {['All', 'Pending', 'In-Progress', 'Resolved', 'Overdue'].map(item => (
-          <TouchableOpacity key={item} style={[styles.filterBtn, filter === item && { backgroundColor: '#1E5F9E' }]} onPress={() => setFilter(item)}>
+          <TouchableOpacity
+            key={item}
+            style={[styles.filterBtn, filter === item && { backgroundColor: '#1E5F9E' }]}
+            onPress={() => setFilter(item)}
+          >
             <Text style={[styles.filterText, filter === item && { color: '#fff' }]}>{item}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
+      {/* Complaints List */}
       <FlatList
         data={filteredData}
         keyExtractor={item => item.id}
         scrollEnabled={false}
         renderItem={({ item }) => (
-          <TouchableOpacity activeOpacity={0.85} onPress={() => openDetails(item)} style={styles.card}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => openDetails(item)}
+            style={[styles.card, item.assigned_to ? { borderLeftColor: '#1E90FF' } : {}]}
+          >
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.subtitle}>Student: {item.student}</Text>
-              <Text style={[styles.status, { color: getColor(item.status) }]}>{item.status} • {item.priority} Priority</Text>
+              <Text style={[styles.status, { color: getColor(item.status) }]}>
+                {item.status} • {item.priority} Priority
+              </Text>
+              {item.assigned_to && (
+                <Text style={styles.assignedText}>
+                  Assigned to: {staffList.find(s => s.id === item.assigned_to)?.full_name || 'Staff'}
+                </Text>
+              )}
             </View>
-            <View>
-              <TouchableOpacity style={styles.assignBtn} onPress={() => assignToStaff(item.id)}>
-                <Text style={styles.assignText}>Assign</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.escalateBtn} onPress={() => Alert.alert('Escalate', 'Escalation noted (simulated).')}>
-                <Text style={styles.assignText}>Escalate</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={{ justifyContent: 'center' }}>
+              <Ionicons name="ellipsis-vertical" size={18} color="#999" />
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
       />
 
+      {/* Assign Staff Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeDetails}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{selected?.title}</Text>
-            <Text style={styles.modalText}>Reported by: {selected?.student}</Text>
+            <Text style={styles.modalText}>Student: {selected?.student}</Text>
             <Text style={styles.modalText}>Status: {selected?.status}</Text>
-            <Text style={[styles.modalText, { marginTop: 8 }]}>{selected?.details}</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 }}>
-              <TouchableOpacity style={[styles.assignBtn, { flex: 1, marginRight: 8 }]} onPress={() => assignToStaff(selected?.id)}>
+            <Text style={[styles.modalText, { marginBottom: 12 }]}>{selected?.details}</Text>
+
+            <Text style={{ fontWeight: '600', marginBottom: 8 }}>Assign to Staff</Text>
+            {staffList.map(staff => (
+              <TouchableOpacity
+                key={staff.id}
+                style={[
+                  styles.staffBtn,
+                  selectedStaff === staff.id && { backgroundColor: '#1E5F9E' },
+                ]}
+                onPress={() => setSelectedStaff(staff.id)}
+              >
+                <Text
+                  style={{
+                    color: selectedStaff === staff.id ? '#fff' : '#0F3057',
+                    fontWeight: '600',
+                  }}
+                >
+                  {staff.full_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <View style={{ flexDirection: 'row', marginTop: 18 }}>
+              <TouchableOpacity style={[styles.assignBtn, { flex: 1 }]} onPress={assignToStaff}>
                 <Text style={styles.assignText}>Assign</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.escalateBtn, { flex: 1 }]} onPress={() => { Alert.alert('Escalated', 'Complaint escalated (simulated).'); closeDetails(); }}>
-                <Text style={styles.assignText}>Escalate</Text>
+              <TouchableOpacity style={[styles.escalateBtn, { flex: 1, marginLeft: 8 }]} onPress={closeDetails}>
+                <Text style={styles.assignText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={closeDetails}><Text style={{ color: '#1E5F9E' }}>Close</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -152,12 +246,20 @@ const styles = StyleSheet.create({
   title: { fontWeight: '600', color: '#0F3057' },
   subtitle: { fontSize: 12, color: '#777', marginTop: 3 },
   status: { marginTop: 5, fontSize: 12, fontWeight: '600' },
-  assignBtn: { backgroundColor: '#1E5F9E', padding: 8, borderRadius: 8, marginBottom: 6, alignItems: 'center' },
-  escalateBtn: { backgroundColor: '#FF3B30', padding: 8, borderRadius: 8, alignItems: 'center' },
-  assignText: { color: '#fff', fontSize: 12 },
+  assignedText: { marginTop: 6, fontSize: 12, color: '#1E90FF', fontWeight: '600' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F3057' },
-  modalText: { marginTop: 8, color: '#555' },
-  closeBtn: { marginTop: 14, alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F3057', marginBottom: 6 },
+  modalText: { color: '#555', marginBottom: 6 },
+  staffBtn: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E5F9E',
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  assignBtn: { backgroundColor: '#1E5F9E', padding: 10, borderRadius: 8, alignItems: 'center' },
+  escalateBtn: { backgroundColor: '#FF3B30', padding: 10, borderRadius: 8, alignItems: 'center' },
+  assignText: { color: '#fff', fontWeight: '600' },
 });
