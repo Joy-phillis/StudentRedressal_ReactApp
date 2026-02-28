@@ -14,7 +14,14 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing, interpolate } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../services/supabase';
 
@@ -24,6 +31,7 @@ export default function StaffHome({ navigation }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [assignedList, setAssignedList] = useState<any[]>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string>(''); // fetched from Supabase
 
   const headerOpacity = useSharedValue(0);
   const statsTranslate = useSharedValue(50);
@@ -31,7 +39,10 @@ export default function StaffHome({ navigation }: any) {
   const complaintsScale = useSharedValue(0.8);
 
   useEffect(() => {
-    headerOpacity.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.exp) });
+    headerOpacity.value = withTiming(1, {
+      duration: 900,
+      easing: Easing.out(Easing.exp),
+    });
     statsTranslate.value = withSpring(0, { damping: 12, stiffness: 100 });
     actionsScale.value = withSpring(1, { damping: 12, stiffness: 100 });
     complaintsScale.value = withSpring(1, { damping: 12, stiffness: 100 });
@@ -39,24 +50,54 @@ export default function StaffHome({ navigation }: any) {
 
   const headerStyle = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
-    transform: [{ translateY: interpolate(headerOpacity.value, [0, 1], [20, 0]) }],
+    transform: [
+      {
+        translateY: interpolate(headerOpacity.value, [0, 1], [20, 0]),
+      },
+    ],
   }));
-  const statsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: statsTranslate.value }] }));
-  const actionStyle = useAnimatedStyle(() => ({ transform: [{ scale: actionsScale.value }] }));
-  const complaintsStyle = useAnimatedStyle(() => ({ transform: [{ scale: complaintsScale.value }] }));
 
-  // --- Fetch staff ID ---
+  const statsStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: statsTranslate.value }],
+  }));
+
+  const actionStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: actionsScale.value }],
+  }));
+
+  const complaintsStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: complaintsScale.value }],
+  }));
+
+  // --- Fetch staff profile + complaints ---
   useEffect(() => {
-    const getStaffId = async () => {
+    const getStaffProfile = async () => {
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser();
-      if (error || !user) return;
+      if (!user || error) return;
+
       setStaffId(user.id);
-      fetchAssignedComplaints(user.id);
+
+      try {
+        // Fetch full_name from your users table
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles') // replace with your table name
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        if (!profileError && profileData?.full_name) setFullName(profileData.full_name);
+
+        // Fetch assigned complaints
+        fetchAssignedComplaints(user.id);
+      } catch (err: any) {
+        console.log('Error fetching profile:', err.message);
+      }
     };
-    getStaffId();
+
+    getStaffProfile();
   }, []);
 
   const fetchAssignedComplaints = async (staff_id: string) => {
@@ -66,13 +107,15 @@ export default function StaffHome({ navigation }: any) {
         .select('*')
         .eq('assigned_to', staff_id)
         .order('created_at', { ascending: false });
+
       if (error) throw error;
       setAssignedList(data || []);
-    } catch (err: any) {
+    } catch {
       Alert.alert('Error', 'Could not fetch assigned complaints');
     }
   };
 
+  // --- Stats derived from assignedList ---
   const statsData = React.useMemo(() => {
     const total = assignedList.length;
     const pending = assignedList.filter(c => c.status === 'Pending').length;
@@ -89,11 +132,19 @@ export default function StaffHome({ navigation }: any) {
     ];
   }, [assignedList]);
 
+  // --- Upload profile photo ---
   const handleUploadPhoto = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') return Alert.alert('Permission Denied', 'Please allow access to photo library');
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
       if (!result.canceled && result.assets && result.assets[0]) {
         setProfileImage(result.assets[0].uri);
         Alert.alert('Success', 'Profile image updated!');
@@ -103,27 +154,37 @@ export default function StaffHome({ navigation }: any) {
     }
   };
 
+  // --- Logout ---
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: () => supabase.auth.signOut().then(() => navigation.replace('Login')) },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => supabase.auth.signOut().then(() => navigation.replace('Login')),
+      },
     ]);
   };
 
+  // --- Mark one complaint as resolved ---
   const markResolvedAction = async () => {
     const pendingComplaint = assignedList.find(c => c.status === 'Pending');
     if (!pendingComplaint || !staffId) return Alert.alert('No pending complaints');
-    try {
-      const { error } = await supabase.from('complaints').update({ status: 'Resolved' }).eq('id', pendingComplaint.id);
-      if (error) throw error;
+
+    const { error } = await supabase
+      .from('complaints')
+      .update({ status: 'Resolved' })
+      .eq('id', pendingComplaint.id);
+
+    if (!error) {
       Alert.alert('Success', 'One complaint resolved');
-      fetchAssignedComplaints(staffId);
-    } catch {
+      fetchAssignedComplaints(staffId); // refresh automatically
+    } else {
       Alert.alert('Error', 'Could not mark complaint resolved');
     }
   };
 
-  // --- Sub-components ---
+  // --- Stats Section ---
   const StatsSection = () => (
     <Animated.View style={[styles.statsContainer, statsStyle]}>
       {statsData.map((stat, idx) => (
@@ -136,6 +197,7 @@ export default function StaffHome({ navigation }: any) {
     </Animated.View>
   );
 
+  // --- Actions Section ---
   const ActionsSection = () => (
     <Animated.View style={actionStyle}>
       {[
@@ -146,7 +208,9 @@ export default function StaffHome({ navigation }: any) {
         <TouchableOpacity
           key={idx}
           style={[styles.actionCard, { backgroundColor: item.color }]}
-          onPress={() => item.action ? item.action() : item.screen ? navigation.navigate(item.screen, item.params) : undefined}
+          onPress={() =>
+            item.action ? item.action() : item.screen ? navigation.navigate(item.screen, item.params) : undefined
+          }
         >
           <Ionicons name={item.icon as any} size={28} color="#fff" />
           <Text style={styles.actionText}>{item.label}</Text>
@@ -155,6 +219,7 @@ export default function StaffHome({ navigation }: any) {
     </Animated.View>
   );
 
+  // --- Recent Assignments Section ---
   const RecentAssignmentsSection = () => {
     const renderComplaintCard = ({ item }: any) => {
       let bgColor = '#1E5F9E';
@@ -183,24 +248,35 @@ export default function StaffHome({ navigation }: any) {
     );
   };
 
+  // --- Render ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
         <Animated.View style={[styles.container, headerStyle]}>
-          {/* HEADER: keep as is */}
+          {/* HEADER */}
           <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle}>Welcome Back,</Text>
-              <Text style={styles.headerSubtitle}>Staff Dashboard</Text>
-            </View>
-
+        <View>
+  <Text style={styles.headerTitle}>Welcome Back,</Text>
+  {fullName ? (
+    <Text style={styles.headerFullName}>{fullName}</Text>
+  ) : (
+    <Text style={styles.headerSubtitle}>Loading...</Text>
+  )}
+</View>
             <View style={styles.topIcons}>
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
                 <Ionicons name="log-out-outline" size={26} color="#0F3057" />
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('Profile')}>
-                {profileImage ? <Image source={{ uri: profileImage }} style={styles.profileAvatar} /> : <View style={styles.profileAvatar}><Ionicons name="person-circle-outline" size={36} color="#fff" /></View>}
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.profileAvatar} />
+                ) : (
+                  <View style={styles.profileAvatar}>
+                    <Ionicons name="person-circle-outline" size={36} color="#fff" />
+                  </View>
+                )}
                 <TouchableOpacity style={styles.profileCamera} onPress={handleUploadPhoto}>
                   <Ionicons name="camera" size={14} color="#fff" />
                 </TouchableOpacity>
@@ -208,10 +284,14 @@ export default function StaffHome({ navigation }: any) {
 
               <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('Notifications')}>
                 <Ionicons name="notifications-outline" size={24} color="#0F3057" />
-                {statsData.filter(s => s.label === 'Pending' || s.label === 'Overdue').reduce((sum, s) => sum + s.value, 0) > 0 && (
+                {statsData
+                  .filter(s => s.label === 'Pending' || s.label === 'Overdue')
+                  .reduce((sum, s) => sum + s.value, 0) > 0 && (
                   <View style={styles.notificationBadgeTextContainer}>
                     <Text style={styles.notificationBadgeText}>
-                      {statsData.filter(s => s.label === 'Pending' || s.label === 'Overdue').reduce((sum, s) => sum + s.value, 0)}
+                      {statsData
+                        .filter(s => s.label === 'Pending' || s.label === 'Overdue')
+                        .reduce((sum, s) => sum + s.value, 0)}
                     </Text>
                   </View>
                 )}
@@ -219,7 +299,7 @@ export default function StaffHome({ navigation }: any) {
             </View>
           </View>
 
-          {/* BODY: Structured Sections */}
+          {/* BODY */}
           <Text style={styles.sectionTitle}>My Stats</Text>
           <StatsSection />
 
@@ -240,10 +320,32 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   topIcons: { flexDirection: 'row', alignItems: 'center' },
   headerTitle: { fontSize: 26, fontWeight: '700', color: '#0F3057' },
-  headerSubtitle: { fontSize: 14, color: '#777', marginTop: 4 },
+  headerFullName: { fontSize: 22, fontWeight: '800', color: '#0F3057', marginTop: 4 },
+  headerSubtitle: { fontSize: 16, fontWeight: '600', color: '#0F3057', marginTop: 4 },
   profileContainer: { position: 'relative', marginRight: 12 },
-  profileAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1E5F9E', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#F4F7FB' },
-  profileCamera: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#1E5F9E', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#F4F7FB', position: 'absolute', right: -4, bottom: -4 },
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1E5F9E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F4F7FB',
+  },
+  profileCamera: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#1E5F9E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F4F7FB',
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+  },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#0F3057', marginBottom: 12, marginTop: 16 },
   statsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12 },
   statCard: { width: '48%', padding: 16, borderRadius: 12, marginBottom: 10, alignItems: 'center', elevation: 2 },
@@ -254,6 +356,17 @@ const styles = StyleSheet.create({
   complaintCard: { padding: 14, borderRadius: 10, marginBottom: 10, elevation: 1 },
   complaintTitle: { fontSize: 13, fontWeight: '600', color: '#fff' },
   complaintStatus: { marginTop: 3, fontSize: 11, fontWeight: '600', color: '#fff' },
-  notificationBadgeTextContainer: { position: 'absolute', right: -6, top: -4, backgroundColor: '#FF3B30', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1, minWidth: 16, alignItems: 'center', justifyContent: 'center' },
+  notificationBadgeTextContainer: {
+    position: 'absolute',
+    right: -6,
+    top: -4,
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   notificationBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 });
