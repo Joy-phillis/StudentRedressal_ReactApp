@@ -10,14 +10,16 @@ export default function AdminNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        animation: 'slide_from_right', // smooth transition to profile
       }}
     >
+      {/* Main Bottom Tabs */}
       <Stack.Screen
         name="AdminTabs"
         component={AdminBottomTabs}
       />
 
-      {/* 🔥 ADD THIS */}
+      {/* Profile Screen (opens above tabs) */}
       <Stack.Screen
         name="AdminProfile"
         component={AdminProfile}

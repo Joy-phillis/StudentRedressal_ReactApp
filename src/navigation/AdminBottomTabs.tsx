@@ -1,19 +1,13 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-import { View, Text } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 
 import AdminDashboard from '../screens/admin/AdminDashboard';
 import AllComplaints from '../screens/admin/AllComplaints';
 import ManageStudents from '../screens/admin/ManageStudents';
 import ManageStaff from '../screens/admin/ManageStaff';
-import SettingsScreen from '../screens/admin/SettingsScreen'; // <- new import
+import SettingsScreen from '../screens/admin/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -41,26 +35,18 @@ export default function AdminBottomTabs() {
           fontWeight: '600',
           marginTop: 2,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName: any;
-
           if (route.name === 'Dashboard') iconName = 'grid-outline';
           if (route.name === 'Complaints') iconName = 'document-text-outline';
           if (route.name === 'Students') iconName = 'person-outline';
           if (route.name === 'Staff') iconName = 'people-outline';
-          if (route.name === 'Settings') iconName = 'settings-outline'; // <- settings icon
+          if (route.name === 'Settings') iconName = 'settings-outline';
 
-          // Smooth animation
+          // Smooth scale animation
           const scale = useSharedValue(focused ? 1.2 : 1);
-
-          scale.value = withTiming(focused ? 1.2 : 1, {
-            duration: 220,
-            easing: Easing.out(Easing.exp),
-          });
-
-          const animatedStyle = useAnimatedStyle(() => ({
-            transform: [{ scale: scale.value }],
-          }));
+          scale.value = withTiming(focused ? 1.2 : 1, { duration: 220, easing: Easing.out(Easing.exp) });
+          const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
           return (
             <Animated.View style={animatedStyle}>
@@ -91,8 +77,8 @@ export default function AdminBottomTabs() {
         options={{ tabBarLabel: 'Staff' }}
       />
       <Tab.Screen
-        name="Settings" // <- new tab
-        component={SettingsScreen} // <- new screen
+        name="Settings"
+        component={SettingsScreen}
         options={{ tabBarLabel: 'Settings' }}
       />
     </Tab.Navigator>
