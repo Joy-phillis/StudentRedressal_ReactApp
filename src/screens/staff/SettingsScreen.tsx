@@ -17,6 +17,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../services/supabase';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -57,9 +58,18 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   const { logout } = useAuth();
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [ { text: 'Cancel', style: 'cancel' }, { text: 'Logout', style: 'destructive', onPress: logout } ]);
-  };
+const handleLogout = () => {
+  Alert.alert('Logout', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Logout',
+      style: 'destructive',
+      onPress: async () => {
+        await supabase.auth.signOut(); // RootNavigator will now detect this
+      },
+    },
+  ]);
+};
 
   const toggleFaq = (i: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
