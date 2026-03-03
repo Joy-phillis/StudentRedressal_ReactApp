@@ -37,6 +37,26 @@ export default function RootNavigator() {
     return () => clearTimeout(timer);
   }, []);
 
+  // 🔥 LISTEN TO SUPABASE AUTH STATE CHANGES (THIS FIXES LOGOUT)
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          try {
+            await AsyncStorage.removeItem('userRole');
+          } catch (error) {
+            console.log('Error removing role on sign out:', error);
+          }
+          setUserRole(null);
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   // Logout function (used by AuthContext)
   const handleLogout = async () => {
     try {
@@ -45,7 +65,13 @@ export default function RootNavigator() {
     } catch (err) {
       console.log('supabase signOut error', err);
     }
-    AsyncStorage.removeItem('userRole'); // Clear stored role
+
+    try {
+      await AsyncStorage.removeItem('userRole');
+    } catch (error) {
+      console.log('Error clearing role:', error);
+    }
+
     setUserRole(null); // This will automatically show AuthNavigator
   };
 
