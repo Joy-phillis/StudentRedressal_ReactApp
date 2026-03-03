@@ -26,6 +26,9 @@ export default function AdminDashboard({ navigation }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const { logout } = useAuth();
 
+  // 🔹 NEW: ADMIN NAME STATE
+  const [adminName, setAdminName] = useState<string>('Loading...');
+
   // 🔹 DATABASE STATES
   const [kpis, setKpis] = useState([
     { label: 'Students', value: 0 },
@@ -50,6 +53,8 @@ export default function AdminDashboard({ navigation }: any) {
   useEffect(() => {
     fade.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.exp) });
     slide.value = withSpring(0, { damping: 14, stiffness: 120 });
+
+    fetchAdminProfile(); // 🔥 FETCH NAME
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -57,9 +62,25 @@ export default function AdminDashboard({ navigation }: any) {
     transform: [{ translateY: slide.value }],
   }));
 
+  // 🔹 NEW: FETCH ADMIN NAME
+  const fetchAdminProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    if (!error && data) {
+      setAdminName(data.full_name);
+    }
+  };
+
   // 🔹 FETCH DASHBOARD DATA
   const fetchDashboardData = async () => {
-    // USERS
     const { data: users } = await supabase.from('profiles').select('role');
 
     let students = 0;
@@ -70,7 +91,6 @@ export default function AdminDashboard({ navigation }: any) {
       staff = users.filter(u => u.role === 'staff').length;
     }
 
-    // COMPLAINTS
     const { data: complaints } = await supabase
       .from('complaints')
       .select('*')
@@ -120,21 +140,22 @@ export default function AdminDashboard({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData();
+      fetchAdminProfile(); // refresh name if changed
     }, [])
   );
 
-const handleLogout = () => {
-  Alert.alert('Logout', 'Are you sure?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Logout',
-      style: 'destructive',
-      onPress: async () => {
-        await supabase.auth.signOut(); // RootNavigator will now detect this
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await supabase.auth.signOut();
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
   const handleUploadPhoto = async () => {
     try {
@@ -186,13 +207,12 @@ const handleLogout = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
         <Animated.View style={[styles.container, animatedStyle]}>
 
-          {/* EVERYTHING BELOW IS 100% YOUR ORIGINAL UI — UNTOUCHED */}
-
+          {/* HEADER */}
           <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle}>Welcome Back,</Text>
-              <Text style={styles.headerSubtitle}>System Administrator</Text>
-            </View>
+         <View>
+  <Text style={styles.headerTitle}>Welcome Back,</Text>
+  <Text style={styles.headerName}>{adminName}</Text>
+</View>
 
             <View style={styles.topIcons}>
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
@@ -212,7 +232,7 @@ const handleLogout = () => {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('AllComplaints')}>
+              <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('Complaints')}>
                 <Ionicons name="notifications-outline" size={24} color="#0F3057" />
               </TouchableOpacity>
             </View>
@@ -296,6 +316,13 @@ const styles = StyleSheet.create({
   },
   topIcons: { flexDirection: 'row', alignItems: 'center' },
   headerTitle: { fontSize: 26, fontWeight: '700', color: '#0F3057' },
+  headerName: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: '#1E5F9E',
+  marginTop: 4,
+  letterSpacing: 0.3,
+},
   headerSubtitle: { fontSize: 14, color: '#777', marginTop: 4 },
   profileContainer: { position: 'relative', marginRight: 12 },
   profileAvatar: {
