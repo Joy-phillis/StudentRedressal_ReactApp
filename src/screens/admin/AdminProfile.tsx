@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../services/supabase';
 
 export default function AdminProfile({ navigation }: any) {
   const [name, setName] = useState('System Administrator');
@@ -13,12 +14,18 @@ export default function AdminProfile({ navigation }: any) {
   };
 
   const { logout } = useAuth();
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
-    ]);
-  };
+const handleLogout = () => {
+  Alert.alert('Logout', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Logout',
+      style: 'destructive',
+      onPress: async () => {
+        await supabase.auth.signOut(); // RootNavigator will now detect this
+      },
+    },
+  ]);
+};
 
   return (
     <SafeAreaView style={styles.container}>

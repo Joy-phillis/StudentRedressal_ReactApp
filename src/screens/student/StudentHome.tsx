@@ -127,12 +127,18 @@ export default function StudentHome({ navigation }: any) {
     transform: [{ translateY: announcementsTranslate.value }],
   }));
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
-    ]);
-  };
+const handleLogout = () => {
+  Alert.alert('Logout', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Logout',
+      style: 'destructive',
+      onPress: async () => {
+        await supabase.auth.signOut(); // RootNavigator will now detect this
+      },
+    },
+  ]);
+};
 
   const renderComplaintCard = ({ item }: any) => {
     let bgColor = '#1E5F9E';

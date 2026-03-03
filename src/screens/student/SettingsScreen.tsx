@@ -138,13 +138,18 @@ export default function SettingsScreen() {
   };
 
   // unified logout alert that uses context
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
-    ]);
-  };
-
+const handleLogout = () => {
+  Alert.alert('Logout', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Logout',
+      style: 'destructive',
+      onPress: async () => {
+        await supabase.auth.signOut(); // RootNavigator will now detect this
+      },
+    },
+  ]);
+};
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
