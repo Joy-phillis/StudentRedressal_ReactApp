@@ -4,7 +4,7 @@ import { ProfileProvider } from '../context/ProfileContext';
 import AuthNavigator from './AuthNavigator';
 import { AuthProvider } from '../context/AuthContext';
 import StudentNavigator from './StudentNavigator';
-import AdminNavigator from './AdminBottomTabs';
+import AdminNavigator from './AdminNavigator';
 import StaffNavigator from './StaffNavigator';
 import SplashScreenPage from '../screens/SplashScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
