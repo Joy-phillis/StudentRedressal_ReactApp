@@ -32,6 +32,7 @@ export default function StaffHome({ navigation }: any) {
   const [assignedList, setAssignedList] = useState<any[]>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string>(''); // fetched from Supabase
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   const headerOpacity = useSharedValue(0);
   const statsTranslate = useSharedValue(50);
@@ -90,8 +91,9 @@ export default function StaffHome({ navigation }: any) {
 
         if (!profileError && profileData?.full_name) setFullName(profileData.full_name);
 
-        // Fetch assigned complaints
+        // Fetch assigned complaints and announcements
         fetchAssignedComplaints(user.id);
+        fetchAnnouncements();
       } catch (err: any) {
         console.log('Error fetching profile:', err.message);
       }
@@ -99,6 +101,30 @@ export default function StaffHome({ navigation }: any) {
 
     getStaffProfile();
   }, []);
+
+  // 🔹 REAL-TIME NOTIFICATION LISTENER
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_type=eq.staff`,
+        },
+        (payload) => {
+          console.log('Real-time notification update:', payload);
+          fetchAssignedComplaints(staffId || '');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [staffId]);
 
   const fetchAssignedComplaints = async (staff_id: string) => {
     try {
@@ -112,6 +138,24 @@ export default function StaffHome({ navigation }: any) {
       setAssignedList(data || []);
     } catch {
       Alert.alert('Error', 'Could not fetch assigned complaints');
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.log('Fetch announcements error:', error.message);
+      return;
+    }
+
+    if (data) {
+      setAnnouncements(data);
     }
   };
 
@@ -309,6 +353,23 @@ const handleLogout = () => {
 
           <Text style={styles.sectionTitle}>Recent Assignment</Text>
           <RecentAssignmentsSection />
+
+          <Text style={styles.sectionTitle}>Announcements</Text>
+          <Animated.View style={styles.announcementsContainer}>
+            {announcements.length === 0 ? (
+              <Text style={styles.noAnnouncementsText}>No announcements at this time</Text>
+            ) : (
+              announcements.map((announcement, idx) => (
+                <View key={announcement.id || idx} style={styles.announcementCard}>
+                  <Text style={styles.announcementTitle}>{announcement.title}</Text>
+                  <Text style={styles.announcementText}>{announcement.content}</Text>
+                  <Text style={styles.announcementDate}>
+                    {new Date(announcement.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+              ))
+            )}
+          </Animated.View>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -370,4 +431,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notificationBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  announcementsContainer: {
+    marginBottom: 20,
+  },
+  announcementCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  announcementTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F3057',
+    marginBottom: 5,
+  },
+  announcementText: { fontSize: 14, color: '#0F3057' },
+  announcementDate: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 5,
+    textAlign: 'right',
+  },
+  noAnnouncementsText: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 20,
+    fontSize: 16,
+  },
 });

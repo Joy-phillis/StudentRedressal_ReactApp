@@ -7,6 +7,7 @@ import AdminDashboard from '../screens/admin/AdminDashboard';
 import AllComplaints from '../screens/admin/AllComplaints';
 import ManageStudents from '../screens/admin/ManageStudents';
 import ManageStaff from '../screens/admin/ManageStaff';
+import ManageAnnouncements from '../screens/admin/ManageAnnouncements';
 import SettingsScreen from '../screens/admin/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -41,6 +42,7 @@ export default function AdminBottomTabs() {
           if (route.name === 'Complaints') iconName = 'document-text-outline';
           if (route.name === 'Students') iconName = 'person-outline';
           if (route.name === 'Staff') iconName = 'people-outline';
+          if (route.name === 'Announcements') iconName = 'megaphone-outline';
           if (route.name === 'Settings') iconName = 'settings-outline';
 
           // Smooth scale animation
@@ -75,6 +77,11 @@ export default function AdminBottomTabs() {
         name="Staff"
         component={ManageStaff}
         options={{ tabBarLabel: 'Staff' }}
+      />
+      <Tab.Screen
+        name="Announcements"
+        component={ManageAnnouncements}
+        options={{ tabBarLabel: 'Announcements' }}
       />
       <Tab.Screen
         name="Settings"

@@ -28,6 +28,7 @@ export default function AdminDashboard({ navigation }: any) {
 
   // 🔹 NEW: ADMIN NAME STATE
   const [adminName, setAdminName] = useState<string>('Loading...');
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   // 🔹 DATABASE STATES
   const [kpis, setKpis] = useState([
@@ -133,16 +134,61 @@ export default function AdminDashboard({ navigation }: any) {
     ]);
   };
 
+  // 🔹 FETCH UNREAD NOTIFICATIONS
+  const fetchUnreadNotifications = async () => {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .eq('is_read', false)
+      .eq('recipient_type', 'admin');
+
+    if (error) {
+      console.log('Fetch notifications error:', error.message);
+      return;
+    }
+
+    if (data) {
+      setUnreadNotificationCount(data.length);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
+    fetchUnreadNotifications();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData();
       fetchAdminProfile(); // refresh name if changed
+      fetchUnreadNotifications();
     }, [])
   );
+
+  // 🔹 REAL-TIME NOTIFICATION LISTENER
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_type=eq.admin`,
+        },
+        (payload) => {
+          console.log('Real-time notification update:', payload);
+          fetchDashboardData();
+          fetchUnreadNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure?', [
@@ -234,6 +280,11 @@ export default function AdminDashboard({ navigation }: any) {
 
               <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('Complaints')}>
                 <Ionicons name="notifications-outline" size={24} color="#0F3057" />
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>{unreadNotificationCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -410,4 +461,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   performanceText: { fontSize: 13, color: '#555', marginBottom: 8 },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF3B30',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 10,
+  },
 });

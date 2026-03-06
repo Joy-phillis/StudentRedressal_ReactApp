@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { supabase } from '../../services/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -116,8 +117,9 @@ const initialNotifications: Notification[] = [
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
 
   const headerScale = useSharedValue(0.8);
@@ -127,6 +129,7 @@ export default function NotificationsScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      fetchNotifications();
       headerScale.value = withSpring(1, { damping: 13, stiffness: 100 });
       headerOpacity.value = withTiming(1, { duration: 400 });
       listTranslate.value = withTiming(0, { duration: 500 });
@@ -144,7 +147,110 @@ export default function NotificationsScreen() {
     opacity: listOpacity.value,
   }));
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const fetchNotifications = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Error fetching notifications:', error);
+        Alert.alert('Error', 'Failed to fetch notifications');
+      } else {
+        setNotifications(data || []);
+      }
+    } catch (error) {
+      console.log('Error:', error);
+      Alert.alert('Error', 'Failed to fetch notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setNotifications(prev => 
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+      );
+      // Refresh notification count in parent components
+      fetchNotifications();
+    } catch (error) {
+      console.log('Error marking as read:', error);
+      Alert.alert('Error', 'Failed to mark notification as read');
+    }
+  };
+
+  const markAsUnread = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: false })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setNotifications(prev => 
+        prev.map(n => n.id === id ? { ...n, is_read: false } : n)
+      );
+    } catch (error) {
+      console.log('Error marking as unread:', error);
+      Alert.alert('Error', 'Failed to mark notification as unread');
+    }
+  };
+
+  const deleteNotification = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      Alert.alert('Success', 'Notification deleted');
+    } catch (error) {
+      console.log('Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete notification');
+    }
+  };
+
+  const markAllAsRead = async () => {
+    const unreadNotifications = notifications.filter(n => !n.is_read);
+    if (unreadNotifications.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('is_read', false);
+
+      if (error) throw error;
+
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      Alert.alert('Success', 'All notifications marked as read!');
+    } catch (error) {
+      console.log('Error marking all as read:', error);
+      Alert.alert('Error', 'Failed to mark all notifications as read');
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  };
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const getNotificationColor = (type: string) => {
     switch (type) {
@@ -163,7 +269,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  const getNotificationIcon = (type: string, icon: string) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'urgent':
         return 'alert';
@@ -180,53 +286,15 @@ export default function NotificationsScreen() {
     }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications((prevNotifications) =>
-      prevNotifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      )
-    );
-  };
-
-  const markAsUnread = (id: string) => {
-    setNotifications((prevNotifications) =>
-      prevNotifications.map((n) =>
-        n.id === id ? { ...n, read: false } : n
-      )
-    );
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications((prevNotifications) =>
-      prevNotifications.filter((n) => n.id !== id)
-    );
-  };
-
-  const markAllAsRead = () => {
-    if (unreadCount === 0) return; // Don't do anything if no unread
-    setNotifications((prevNotifications) =>
-      prevNotifications.map((n) => ({ ...n, read: true }))
-    );
-    Alert.alert('Success', 'All notifications marked as read!');
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      Alert.alert('Refreshed', 'Notifications updated successfully!');
-    }, 1500);
-  };
-
   const filteredNotifications = notifications.filter((n) => {
-    if (selectedFilter === 'unread') return !n.read;
+    if (selectedFilter === 'unread') return !n.is_read;
     if (selectedFilter === 'all') return true;
     return n.type === selectedFilter;
   });
 
-  const renderNotificationItem = ({ item, index }: { item: Notification; index: number }) => {
+  const renderNotificationItem = ({ item, index }: { item: any; index: number }) => {
     const color = getNotificationColor(item.type);
-    const iconName = getNotificationIcon(item.type, item.icon);
+    const iconName = getNotificationIcon(item.type);
 
     return (
       <Animated.View
@@ -237,7 +305,7 @@ export default function NotificationsScreen() {
         <TouchableOpacity
           style={[
             styles.notificationCard,
-            !item.read && styles.notificationCardUnread,
+            !item.is_read && styles.notificationCardUnread,
           ]}
           activeOpacity={0.7}
           onPress={() => markAsRead(item.id)}
@@ -250,25 +318,27 @@ export default function NotificationsScreen() {
           {/* Content */}
           <View style={styles.notificationContent}>
             <View style={styles.titleRow}>
-              <Text style={[styles.notificationTitle, !item.read && styles.titleUnread]}>
+              <Text style={[styles.notificationTitle, !item.is_read && styles.titleUnread]}>
                 {item.title}
               </Text>
-              {!item.read && <View style={styles.unreadDot} />}
+              {!item.is_read && <View style={styles.unreadDot} />}
             </View>
             <Text style={styles.notificationMessage} numberOfLines={2}>
               {item.message}
             </Text>
-            <Text style={styles.notificationTime}>{item.timestamp}</Text>
+            <Text style={styles.notificationTime}>
+              {new Date(item.created_at).toLocaleString()}
+            </Text>
           </View>
 
           {/* Actions */}
           <View style={styles.actionContainer}>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => (item.read ? markAsUnread(item.id) : markAsRead(item.id))}
+              onPress={() => (item.is_read ? markAsUnread(item.id) : markAsRead(item.id))}
             >
               <Ionicons
-                name={item.read ? 'mail-outline' : 'mail-open-outline'}
+                name={item.is_read ? 'mail-outline' : 'mail-open-outline'}
                 size={18}
                 color={COLORS.textLight}
               />

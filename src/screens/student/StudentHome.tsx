@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { ProfileContext } from '../../context/ProfileContext';
 import { supabase } from '../../services/supabase';
 import { useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,8 @@ export default function StudentHome({ navigation }: any) {
   const [totalCount, setTotalCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   // 🔹 FETCH FROM SUPABASE
   const fetchComplaints = async () => {
@@ -56,6 +59,65 @@ export default function StudentHome({ navigation }: any) {
       setResolvedCount(data.filter(item => item.status === 'Resolved').length);
     }
   };
+
+  const fetchAnnouncements = async () => {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.log('Fetch announcements error:', error.message);
+      return;
+    }
+
+    if (data) {
+      setAnnouncements(data);
+    }
+  };
+
+  const fetchUnreadNotifications = async () => {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .eq('is_read', false)
+      .eq('recipient_type', 'student');
+
+    if (error) {
+      console.log('Fetch notifications error:', error.message);
+      return;
+    }
+
+    if (data) {
+      setUnreadNotificationCount(data.length);
+    }
+  };
+
+  // 🔹 REAL-TIME NOTIFICATION LISTENER
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_type=eq.student`,
+        },
+        (payload) => {
+          console.log('Real-time notification update:', payload);
+          fetchUnreadNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleUploadPhoto = async () => {
     try {
@@ -97,12 +159,16 @@ export default function StudentHome({ navigation }: any) {
     announcementsTranslate.value = withSpring(0, { damping: 12, stiffness: 90 });
 
     fetchComplaints(); // 🔹 added
+    fetchAnnouncements(); // 🔹 added
+    fetchUnreadNotifications(); // 🔹 added
   }, []);
 
   // 🔹 Refresh when screen focuses
   useFocusEffect(
     useCallback(() => {
       fetchComplaints();
+      fetchAnnouncements();
+      fetchUnreadNotifications();
     }, [])
   );
 
@@ -167,7 +233,11 @@ const handleLogout = () => {
             onPress={() => navigation.navigate('Notifications')}
           >
             <Ionicons name="notifications-outline" size={30} color="#0F3057" />
-            <View style={styles.notificationBadge} />
+            {unreadNotificationCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadNotificationCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
             <Ionicons name="log-out-outline" size={26} color="#0F3057" />
@@ -243,14 +313,25 @@ const handleLogout = () => {
       {/* Announcements */}
       <Text style={styles.sectionTitle}>Announcements</Text>
       <Animated.View style={[announcementsStyle]}>
-        {[
-          '📢 Semester registration starts next week!',
-          '📢 Library timings updated: 8 AM - 8 PM',
-        ].map((text, idx) => (
-          <View key={idx} style={styles.announcementCard}>
-            <Text style={styles.announcementText}>{text}</Text>
-          </View>
-        ))}
+        {announcements.length === 0 ? (
+          <Text style={styles.noAnnouncementsText}>No announcements at this time</Text>
+        ) : (
+          <ScrollView 
+            style={styles.announcementsScroll}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.announcementsContent}
+          >
+            {announcements.map((announcement, idx) => (
+              <View key={announcement.id || idx} style={styles.announcementCard}>
+                <Text style={styles.announcementTitle}>{announcement.title}</Text>
+                <Text style={styles.announcementText}>{announcement.content}</Text>
+                <Text style={styles.announcementDate}>
+                  {new Date(announcement.created_at).toLocaleDateString()}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        )}
       </Animated.View>
     </ScrollView>
   );
@@ -279,6 +360,13 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: '#FF3B30',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 10,
   },
   profileButton: {
     marginLeft: -25,
@@ -379,5 +467,29 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 3 },
   },
+  announcementTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F3057',
+    marginBottom: 5,
+  },
   announcementText: { fontSize: 14, color: '#0F3057' },
+  announcementDate: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 5,
+    textAlign: 'right',
+  },
+  noAnnouncementsText: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 20,
+    fontSize: 16,
+  },
+  announcementsScroll: {
+    maxHeight: 300,
+  },
+  announcementsContent: {
+    paddingBottom: 10,
+  },
 });
