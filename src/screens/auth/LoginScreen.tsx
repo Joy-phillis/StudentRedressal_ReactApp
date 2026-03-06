@@ -125,6 +125,34 @@ const handleLogin = async () => {
   }
 
   if (data.user) {
+    // 🔍 Fetch user's actual role from profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError) {
+      setLoading(false);
+      setPasswordError('Error verifying user role. Please try again.');
+      return;
+    }
+
+    if (!profileData) {
+      setLoading(false);
+      setPasswordError('User profile not found. Please contact support.');
+      return;
+    }
+
+    const actualRole = profileData.role;
+    
+    // 🔒 Validate selected role matches actual role
+    if (actualRole !== selectedRole) {
+      setLoading(false);
+      setPasswordError(`Invalid role selection. Your account is registered as ${actualRole.toUpperCase()}. Please select the correct role.`);
+      return;
+    }
+
     // ✅ Success message
     setSuccessMessage('Login successful! Redirecting...');
 
