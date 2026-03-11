@@ -44,7 +44,7 @@ export default function StaffTabNavigator() {
           if (route.name === 'Settings') iconName = 'settings-outline';
 
           // Animate icon on focus
-          const scale = useSharedValue(focused ? 1.3 : 1);
+          const scale = useSharedValue(1);
           scale.value = withTiming(focused ? 1.3 : 1, { duration: 250, easing: Easing.out(Easing.exp) });
 
           const animatedStyle = useAnimatedStyle(() => ({

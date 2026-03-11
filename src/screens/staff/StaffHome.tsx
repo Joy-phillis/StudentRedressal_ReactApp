@@ -277,6 +277,8 @@ export default function StaffHome({ navigation }: any) {
   };
 
   // --- Logout ---
+const { logout } = useAuth();
+
 const handleLogout = () => {
   Alert.alert('Logout', 'Are you sure?', [
     { text: 'Cancel', style: 'cancel' },
@@ -284,7 +286,7 @@ const handleLogout = () => {
       text: 'Logout',
       style: 'destructive',
       onPress: async () => {
-        await supabase.auth.signOut(); // RootNavigator will now detect this
+        await logout();
       },
     },
   ]);
