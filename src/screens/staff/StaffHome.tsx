@@ -279,7 +279,7 @@ export default function StaffHome({ navigation }: any) {
   // --- Logout ---
 const { logout } = useAuth();
 
-const handleLogout = () => {
+const handleLogout = async () => {
   Alert.alert('Logout', 'Are you sure?', [
     { text: 'Cancel', style: 'cancel' },
     {
@@ -394,18 +394,23 @@ const handleLogout = () => {
                 <Ionicons name="log-out-outline" size={26} color="#0F3057" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('Profile')}>
-                {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.profileAvatar} />
-                ) : (
-                  <View style={styles.profileAvatar}>
-                    <Ionicons name="person-circle-outline" size={36} color="#fff" />
-                  </View>
-                )}
+              <View style={styles.profileContainer}>
+                <TouchableOpacity style={styles.profileAvatarBtn} onPress={() => navigation.navigate('Profile')}>
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileAvatar} />
+                  ) : (
+                    <View style={styles.profileAvatar}>
+                      <Ionicons name="person-circle-outline" size={36} color="#fff" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.editIcon} onPress={() => navigation.navigate('EditProfile')}>
+                  <Ionicons name="pencil" size={20} color="#1E5F9E" />
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.profileCamera} onPress={handleUploadPhoto}>
                   <Ionicons name="camera" size={14} color="#fff" />
                 </TouchableOpacity>
-              </TouchableOpacity>
+              </View>
 
               <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('Notifications')}>
                 <Ionicons name="notifications-outline" size={24} color="#0F3057" />
@@ -465,6 +470,9 @@ const styles = StyleSheet.create({
   headerFullName: { fontSize: 22, fontWeight: '800', color: '#0F3057', marginTop: 4 },
   headerSubtitle: { fontSize: 16, fontWeight: '600', color: '#0F3057', marginTop: 4 },
   profileContainer: { position: 'relative', marginRight: 12 },
+  profileAvatarBtn: {
+    position: 'relative',
+  },
   profileAvatar: {
     width: 48,
     height: 48,
@@ -474,6 +482,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#F4F7FB',
+  },
+  editIcon: {
+    position: 'absolute',
+    right: -20,
+    top: -8,
+    backgroundColor: '#fff',
+    padding: 4,
+    borderRadius: 12,
+    elevation: 2,
   },
   profileCamera: {
     width: 24,

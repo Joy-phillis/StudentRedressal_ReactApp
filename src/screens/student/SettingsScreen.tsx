@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0,
     borderRadius: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: COLORS.text,

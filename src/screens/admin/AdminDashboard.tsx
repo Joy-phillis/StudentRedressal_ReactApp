@@ -46,6 +46,7 @@ export default function AdminDashboard({ navigation }: any) {
   ]);
 
   const [recentComplaints, setRecentComplaints] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
 
   // 🔹 ANIMATIONS (UNCHANGED)
   const fade = useSharedValue(0);
@@ -155,7 +156,52 @@ export default function AdminDashboard({ navigation }: any) {
   useEffect(() => {
     fetchDashboardData();
     fetchUnreadNotifications();
+    fetchMessages();
   }, []);
+
+  const fetchMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.log('Fetch messages error:', error.message);
+        return;
+      }
+
+      setMessages(data || []);
+    } catch (error) {
+      console.log('Error fetching messages:', error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    Alert.alert('Delete Message', 'Are you sure you want to delete this message?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', messageId);
+
+          if (error) {
+            console.log('Delete error:', error);
+            Alert.alert('Error', 'Could not delete message: ' + error.message);
+          } else {
+            Alert.alert('Success', 'Message deleted');
+            // Filter out the deleted message locally for immediate UI update
+            setMessages(prev => prev.filter(msg => msg.id !== messageId));
+          }
+        },
+      },
+    ]);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -339,6 +385,38 @@ export default function AdminDashboard({ navigation }: any) {
           <Text style={styles.sectionTitle}>Recent Complaints</Text>
           <FlatList data={recentComplaints} keyExtractor={item => item.id} renderItem={renderComplaint} scrollEnabled={false} />
 
+          <Text style={styles.sectionTitle}>Messages</Text>
+          <View style={styles.messagesSection}>
+            {messages.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="mail-outline" size={48} color="#ccc" />
+                <Text style={styles.emptyText}>No messages yet</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={messages}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <View style={styles.messageCard}>
+                    <TouchableOpacity style={styles.messageContent} onPress={() => Alert.alert('Message Detail', item.content)}>
+                      <View style={styles.messageHeader}>
+                        <Text style={styles.messageSender}>{item.sender_type.toUpperCase()}</Text>
+                        <Text style={styles.messageTime}>{new Date(item.created_at).toLocaleDateString()}</Text>
+                      </View>
+                      <Text style={styles.messageSubject}>{item.subject}</Text>
+                      <Text style={styles.messagePreview}>{item.content.substring(0, 100)}...</Text>
+                      <Text style={styles.messageType}>{item.message_type}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteMessage(item.id)}>
+                      <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+
           <Text style={styles.sectionTitle}>Performance Insights</Text>
           <View style={styles.performanceCard}>
             <Text style={styles.performanceText}>Average resolution time has improved by 12% this month.</Text>
@@ -476,5 +554,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     lineHeight: 10,
+  },
+  messagesSection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 2,
+  },
+  messageCard: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    marginBottom: 8,
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  messageSender: {
+    fontWeight: '600',
+    color: '#1E5F9E',
+    fontSize: 12,
+  },
+  messageTime: {
+    fontSize: 11,
+    color: '#888',
+  },
+  messageSubject: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F3057',
+    marginBottom: 2,
+  },
+  messagePreview: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  messageType: {
+    fontSize: 11,
+    color: '#1E5F9E',
+    fontWeight: '500',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    marginTop: 12,
+    color: '#888',
+    fontSize: 14,
+  },
+  messageContent: {
+    flex: 1,
+  },
+  deleteButton: {
+    marginLeft: 12,
+    padding: 8,
   },
 });

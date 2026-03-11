@@ -35,6 +35,7 @@ export default function SettingsScreen({ navigation }: any) {
   ];
 
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [staffName, setStaffName] = useState('Staff Name');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
@@ -53,6 +54,31 @@ export default function SettingsScreen({ navigation }: any) {
   const modalOpacity = useSharedValue(0);
   const inputScale = useSharedValue(1);
   const buttonScale = useSharedValue(1);
+
+  const fetchStaffProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.log('Profile fetch error:', error.message);
+      } else if (data) {
+        setStaffName(data.full_name || 'Staff Name');
+      }
+    } catch (error) {
+      console.log('Error fetching staff profile:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStaffProfile();
+  }, []);
 
   const handleUploadPhoto = async () => {
     try {
@@ -200,7 +226,7 @@ const handleLogout = () => {
             )}
             <View style={styles.profileCamera}><Ionicons name="camera" size={20} color="#fff" /></View>
           </TouchableOpacity>
-          <Text style={styles.adminName}>Staff Name</Text>
+          <Text style={styles.adminName}>{staffName}</Text>
         </View>
 
         <View style={styles.settingsSection}>
@@ -330,7 +356,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   profileSection: { alignItems: 'center', marginBottom: 20 },
   profileButton: { position: 'relative' },
-  profileAvatar: { width: 100, height: 100, borderRadius: 40, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  profileAvatar: { width: 100, height: 100, borderRadius: 70, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   profileCamera: { position: 'absolute', right: -6, bottom: -6, backgroundColor: COLORS.primary, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.background },
   adminName: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginTop: 12 },
   settingsSection: { paddingHorizontal: 20, marginBottom: 25 },
@@ -401,7 +427,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0,
     borderRadius: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: COLORS.text,
