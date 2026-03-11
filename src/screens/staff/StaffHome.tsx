@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import {
   Alert,
   Image,
   Platform,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -24,6 +27,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../services/supabase';
+import { ProfileContext } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +38,19 @@ export default function StaffHome({ navigation }: any) {
   const [staffId, setStaffId] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string>(''); // fetched from Supabase
   const [announcements, setAnnouncements] = useState<any[]>([]);
+
+  // Send message states
+  const [supportModal, setSupportModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [loadingSupport, setLoadingSupport] = useState(false);
+
+  // Animation values for support modal
+  const modalTranslateY = useSharedValue(100);
+  const modalOpacity = useSharedValue(0);
+  const inputScale = useSharedValue(1);
+
+  const { profile } = useContext(ProfileContext);
 
   const headerOpacity = useSharedValue(0);
   const statsTranslate = useSharedValue(50);
@@ -101,6 +119,66 @@ export default function StaffHome({ navigation }: any) {
 
     getStaffProfile();
   }, []);
+
+  // Animation for modal open/close
+  useEffect(() => {
+    if (supportModal) {
+      modalTranslateY.value = withTiming(0, { duration: 300 });
+      modalOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      modalTranslateY.value = withTiming(100, { duration: 200 });
+      modalOpacity.value = withTiming(0, { duration: 200 });
+    }
+  }, [supportModal]);
+
+  const modalStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: modalTranslateY.value }],
+    opacity: modalOpacity.value,
+  }));
+
+  const inputFocusStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: inputScale.value }],
+  }));
+
+  const handleSendSupport = async () => {
+    if (!supportMessage.trim()) {
+      Alert.alert('Error', 'Please enter a message.');
+      return;
+    }
+    if (!supportSubject.trim()) {
+      Alert.alert('Error', 'Please enter a subject.');
+      return;
+    }
+    setLoadingSupport(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated.');
+        return;
+      }
+      const { error } = await supabase
+        .from('messages')
+        .insert([{
+          sender_id: user.id,
+          sender_type: 'staff',
+          receiver_type: 'admin',
+          subject: supportSubject,
+          content: supportMessage,
+          message_type: 'support'
+        }]);
+      if (error) throw error;
+      Alert.alert('Success', 'Message sent successfully to admin!');
+      setSupportModal(false);
+      setSupportSubject('');
+      setSupportMessage('');
+      modalTranslateY.value = 100;
+      modalOpacity.value = 0;
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send message.');
+    } finally {
+      setLoadingSupport(false);
+    }
+  };
 
   // 🔹 REAL-TIME NOTIFICATION LISTENER
   useEffect(() => {

@@ -4,6 +4,8 @@ import {
   View,
   Text,
   StyleSheet,
+  SafeAreaView,
+  StatusBar,
   TouchableOpacity,
   ScrollView,
   FlatList,
@@ -33,6 +35,7 @@ export default function StudentHome({ navigation }: any) {
   const { logout } = useAuth();
 
   // 🔹 NEW STATES (for Supabase data)
+  const [studentName, setStudentName] = useState<string>('Loading...');
   const [complaints, setComplaints] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -151,6 +154,33 @@ export default function StudentHome({ navigation }: any) {
   const complaintsScale = useSharedValue(0.8);
   const announcementsTranslate = useSharedValue(50);
 
+  const fetchStudentProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, email, avatar_url, registration_number')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.log('Profile fetch error:', profileError.message);
+      } else if (profileData) {
+        setStudentName(profileData.full_name);
+        setProfile({
+          name: profileData.full_name,
+          email: profileData.email,
+          image: profileData.avatar_url || profile.image,
+          registration: profileData.registration_number || profile.registration || ''
+        });
+      }
+    } catch (error) {
+      console.log('Error fetching student profile:', error);
+    }
+  };
+
   useEffect(() => {
     headerOpacity.value = withTiming(1, { duration: 1000, easing: Easing.out(Easing.exp) });
     statsTranslate.value = withSpring(0, { damping: 12, stiffness: 90 });
@@ -158,6 +188,7 @@ export default function StudentHome({ navigation }: any) {
     complaintsScale.value = withSpring(1, { damping: 12, stiffness: 90 });
     announcementsTranslate.value = withSpring(0, { damping: 12, stiffness: 90 });
 
+    fetchStudentProfile();
     fetchComplaints(); // 🔹 added
     fetchAnnouncements(); // 🔹 added
     fetchUnreadNotifications(); // 🔹 added
@@ -166,6 +197,7 @@ export default function StudentHome({ navigation }: any) {
   // 🔹 Refresh when screen focuses
   useFocusEffect(
     useCallback(() => {
+      fetchStudentProfile();
       fetchComplaints();
       fetchAnnouncements();
       fetchUnreadNotifications();
@@ -220,125 +252,127 @@ const handleLogout = () => {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Top Header */}
-      <Animated.View style={[styles.headerContainer, headerStyle]}>
-        <View>
-          <Text style={styles.welcome}>Welcome Back 👋</Text>
-          <Text style={styles.subtitle}>Student Redressal Dashboard</Text>
-        </View>
-        <View style={styles.topIcons}>
-          <TouchableOpacity
-            style={[styles.iconButton, { marginRight: 8 }]}
-            onPress={() => navigation.navigate('Notifications')}
-          >
-            <Ionicons name="notifications-outline" size={30} color="#0F3057" />
-            {unreadNotificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{unreadNotificationCount}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
+        <Animated.View style={[styles.container, headerStyle]}>
+          {/* Top Header */}
+          <View style={styles.headerContainer}>
+            <View>
+              <Text style={styles.welcome}>Welcome Back 👋</Text>
+              <Text style={styles.subtitle}>{studentName}</Text>
+            </View>
+            <View style={styles.topIcons}>
+              <TouchableOpacity
+                style={[styles.iconButton, { marginRight: 8 }]}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <Ionicons name="notifications-outline" size={30} color="#0F3057" />
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>{unreadNotificationCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
+                <Ionicons name="log-out-outline" size={26} color="#0F3057" />
+              </TouchableOpacity>
+              <View style={styles.profileContainer}>
+                <TouchableOpacity
+                  style={styles.profileButton}
+                  onPress={() => navigation.navigate('Profile')}
+                >
+                  {profile.image ? (
+                    <Image source={{ uri: profile.image }} style={styles.profileAvatar} />
+                  ) : (
+                    <View style={styles.profileAvatar}>
+                      <Text style={styles.profileAvatarText}>
+                        {profile.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.profileCamera} onPress={handleUploadPhoto}>
+                  <View style={styles.profileCameraBg}>
+                    <Ionicons name="camera" size={14} color="#fff" />
+                  </View>
+                </TouchableOpacity>
               </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
-            <Ionicons name="log-out-outline" size={26} color="#0F3057" />
-          </TouchableOpacity>
-          <View style={styles.profileContainer}>
-            <TouchableOpacity
-              style={styles.profileButton}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              {profile.image ? (
-                <Image source={{ uri: profile.image }} style={styles.profileAvatar} />
-              ) : (
-                <View style={styles.profileAvatar}>
-                  <Text style={styles.profileAvatarText}>
-                    {profile.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.profileCamera} onPress={handleUploadPhoto}>
-              <View style={styles.profileCameraBg}>
-                <Ionicons name="camera" size={14} color="#fff" />
-              </View>
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Animated.View>
 
-      {/* Quick Stats */}
-      <Animated.View style={[styles.statsContainer, statsStyle]}>
-        {[
-          { icon: 'document-text-outline', label: 'Total Complaints', value: totalCount, color: '#1E5F9E' },
-          { icon: 'time-outline', label: 'Pending', value: pendingCount, color: '#FF9800' },
-          { icon: 'checkmark-circle-outline', label: 'Resolved', value: resolvedCount, color: '#4CAF50' },
-        ].map((stat, idx) => (
-          <View key={idx} style={[styles.statCard, { backgroundColor: stat.color }]}>
-            <Ionicons name={stat.icon as any} size={28} color="#fff" />
-            <Text style={styles.statNumber}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </View>
-        ))}
-      </Animated.View>
-
-      {/* Quick Actions */}
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-      <Animated.View style={[actionStyle]}>
-        {[
-          { icon: 'add-circle-outline', label: 'Submit New Complaint', screen: 'Complaints', color: '#1E5F9E' },
-          { icon: 'analytics-outline', label: 'View Reports', screen: 'Reports', color: '#0F3057' },
-        ].map((action, idx) => (
-          <TouchableOpacity
-            key={idx}
-            style={[styles.actionCard, { backgroundColor: action.color }]}
-            onPress={() => navigation.navigate(action.screen)}
-          >
-            <Ionicons name={action.icon as any} size={28} color="#fff" />
-            <Text style={styles.actionText}>{action.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </Animated.View>
-
-      {/* Recent Complaints */}
-      <Text style={styles.sectionTitle}>Recent Complaints</Text>
-      <FlatList
-        data={complaints}
-        keyExtractor={item => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 5 }}
-        renderItem={renderComplaintCard}
-      />
-
-      {/* Announcements */}
-      <Text style={styles.sectionTitle}>Announcements</Text>
-      <Animated.View style={[announcementsStyle]}>
-        {announcements.length === 0 ? (
-          <Text style={styles.noAnnouncementsText}>No announcements at this time</Text>
-        ) : (
-          <ScrollView 
-            style={styles.announcementsScroll}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.announcementsContent}
-          >
-            {announcements.map((announcement, idx) => (
-              <View key={announcement.id || idx} style={styles.announcementCard}>
-                <Text style={styles.announcementTitle}>{announcement.title}</Text>
-                <Text style={styles.announcementText}>{announcement.content}</Text>
-                <Text style={styles.announcementDate}>
-                  {new Date(announcement.created_at).toLocaleDateString()}
-                </Text>
+          {/* Quick Stats */}
+          <Animated.View style={[styles.statsContainer, statsStyle]}>
+            {[
+              { icon: 'document-text-outline', label: 'Total Complaints', value: totalCount, color: '#1E5F9E' },
+              { icon: 'time-outline', label: 'Pending', value: pendingCount, color: '#FF9800' },
+              { icon: 'checkmark-circle-outline', label: 'Resolved', value: resolvedCount, color: '#4CAF50' },
+            ].map((stat, idx) => (
+              <View key={idx} style={[styles.statCard, { backgroundColor: stat.color }]}>
+                <Ionicons name={stat.icon as any} size={28} color="#fff" />
+                <Text style={styles.statNumber}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
               </View>
             ))}
-          </ScrollView>
-        )}
-      </Animated.View>
-    </ScrollView>
+          </Animated.View>
+
+          {/* Quick Actions */}
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Animated.View style={[actionStyle]}>
+            {[
+              { icon: 'add-circle-outline', label: 'Submit New Complaint', screen: 'Complaints', color: '#1E5F9E' },
+              { icon: 'analytics-outline', label: 'View Reports', screen: 'Reports', color: '#0F3057' },
+            ].map((action, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={[styles.actionCard, { backgroundColor: action.color }]}
+                onPress={() => navigation.navigate(action.screen)}
+              >
+                <Ionicons name={action.icon as any} size={28} color="#fff" />
+                <Text style={styles.actionText}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+
+          {/* Recent Complaints */}
+          <Text style={styles.sectionTitle}>Recent Complaints</Text>
+          <FlatList
+            data={complaints}
+            keyExtractor={item => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 5 }}
+            renderItem={renderComplaintCard}
+          />
+
+          {/* Announcements */}
+          <Text style={styles.sectionTitle}>Announcements</Text>
+          <Animated.View style={[announcementsStyle]}>
+            {announcements.length === 0 ? (
+              <Text style={styles.noAnnouncementsText}>No announcements at this time</Text>
+            ) : (
+              <View style={styles.announcementsContainer}>
+                {announcements.map((announcement, idx) => (
+                  <View key={announcement.id || idx} style={styles.announcementCard}>
+                    <Text style={styles.announcementTitle}>{announcement.title}</Text>
+                    <Text style={styles.announcementText}>{announcement.content}</Text>
+                    <Text style={styles.announcementDate}>
+                      {new Date(announcement.created_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Animated.View>
+        </Animated.View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F7FB', paddingTop: 70, paddingHorizontal: 20 },
+  safeArea: { flex: 1, backgroundColor: '#F4F7FB' },
+  container: { paddingHorizontal: 20, paddingTop: 70 },
 
   headerContainer: {
     flexDirection: 'row',
@@ -348,7 +382,13 @@ const styles = StyleSheet.create({
   },
 
   welcome: { fontSize: 26, fontWeight: '700', color: '#0F3057' },
-  subtitle: { fontSize: 15, color: '#777', marginTop: 5 },
+  subtitle: { 
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1E5F9E',
+    marginTop: 4,
+    letterSpacing: 0.3
+  },
 
   topIcons: { flexDirection: 'row', alignItems: 'center' },
   iconButton: { marginLeft: 15, position: 'relative' },
@@ -486,10 +526,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
   },
-  announcementsScroll: {
-    maxHeight: 300,
-  },
-  announcementsContent: {
-    paddingBottom: 10,
+  announcementsContainer: {
+    // Remove maxHeight to allow all announcements to be visible
+    // The main ScrollView will handle scrolling for the entire page
   },
 });
