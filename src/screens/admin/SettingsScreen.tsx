@@ -15,12 +15,15 @@ import {
   TextInput,
   ActivityIndicator,
   StatusBar,
+  useColorScheme,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
+import { useTheme } from '../../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -30,13 +33,27 @@ const COLORS = {
   primary: '#1E5F9E',
   secondary: '#FF3B30',
   background: '#F4F7FB',
+  backgroundDark: '#1A1A2E',
   surface: '#FFFFFF',
+  surfaceDark: '#16213E',
   text: '#0F3057',
+  textDark: '#E8E8E8',
   textLight: '#6B7280',
+  textLightDark: '#A0A0A0',
+};
+
+const DARK_COLORS = {
+  primary: '#3B82F6',
+  secondary: '#FF3B30',
+  background: '#1A1A2E',
+  surface: '#16213E',
+  text: '#E8E8E8',
+  textLight: '#A0A0A0',
 };
 
 export default function AdminSettingsScreen() {
   const navigation = useNavigation<any>();
+  const { isDark, toggleTheme, colors } = useTheme();
   const [profile, setProfile] = useState<any>({});
   const [loadingProfile, setLoadingProfile] = useState(true);
 
@@ -55,8 +72,35 @@ export default function AdminSettingsScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [supportModal, setSupportModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [loadingSupport, setLoadingSupport] = useState(false);
+
+  // Animation values for modals
+  const modalTranslateY = useSharedValue(100);
+  const modalOpacity = useSharedValue(0);
+  const passwordModalTranslateY = useSharedValue(100);
+  const passwordModalOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (supportModal) {
+      modalTranslateY.value = withTiming(0, { duration: 300 });
+      modalOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      modalTranslateY.value = withTiming(100, { duration: 200 });
+      modalOpacity.value = withTiming(0, { duration: 200 });
+    }
+  }, [supportModal]);
+
+  useEffect(() => {
+    if (passwordModal) {
+      passwordModalTranslateY.value = withTiming(0, { duration: 300 });
+      passwordModalOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      passwordModalTranslateY.value = withTiming(100, { duration: 200 });
+      passwordModalOpacity.value = withTiming(0, { duration: 200 });
+    }
+  }, [passwordModal]);
 
   const headerScale = useSharedValue(0.9);
   const headerOpacity = useSharedValue(0);
@@ -66,6 +110,16 @@ export default function AdminSettingsScreen() {
     headerOpacity.value = withTiming(1, { duration: 400 });
     fetchProfile();
   }, []);
+
+  // Sync darkMode state with ThemeContext
+  useEffect(() => {
+    setDarkMode(isDark);
+  }, [isDark]);
+
+  const toggleDarkMode = async (value: boolean) => {
+    setDarkMode(value);
+    toggleTheme(value); // Use ThemeContext's toggleTheme
+  };
 
   const fetchProfile = async () => {
     setLoadingProfile(true);
@@ -131,7 +185,7 @@ export default function AdminSettingsScreen() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'All fields are required');
+      Alert.alert('Error', 'All password fields are required');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -144,11 +198,25 @@ export default function AdminSettingsScreen() {
     }
 
     setLoadingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setLoadingPassword(false);
+    try {
+      // First verify current password by attempting to sign in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        setLoadingPassword(false);
+        return;
+      }
 
-    if (error) Alert.alert('Error', error.message);
-    else {
+      // Update password via Supabase Auth
+      const { error } = await supabase.auth.updateUser({ 
+        password: newPassword 
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
       Alert.alert('Success', 'Password updated successfully');
       setPasswordModal(false);
       setCurrentPassword('');
@@ -157,24 +225,81 @@ export default function AdminSettingsScreen() {
       setShowCurrent(false);
       setShowNew(false);
       setShowConfirm(false);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update password');
+    } finally {
+      setLoadingPassword(false);
     }
   };
 
   const handleSendSupport = async () => {
-    if (!supportMessage) {
+    if (!supportSubject.trim()) {
+      Alert.alert('Error', 'Please enter a subject.');
+      return;
+    }
+    if (!supportMessage.trim()) {
       Alert.alert('Error', 'Please enter a message.');
       return;
     }
+    
     setLoadingSupport(true);
-    const { error } = await supabase.from('support_messages').insert([
-      { message: supportMessage, admin_email: profile.email },
-    ]);
-    setLoadingSupport(false);
-    if (error) Alert.alert('Error', error.message);
-    else {
-      Alert.alert('Success', 'Message sent successfully');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated.');
+        setLoadingSupport(false);
+        return;
+      }
+
+      // Insert messages for both students and staff (separate entries per receiver_type)
+      const messageTypes = ['student', 'staff'] as const;
+      const messagePromises = messageTypes.map(async (receiverType) => {
+        const { error } = await supabase
+          .from('messages')
+          .insert([{
+            sender_id: user.id,
+            sender_type: 'admin',
+            receiver_type: receiverType,
+            subject: supportSubject,
+            content: supportMessage,
+            message_type: 'notification'  // Valid value per schema
+          }]);
+        if (error) throw error;
+      });
+
+      await Promise.all(messagePromises);
+
+      // Create notifications for all students and staff
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .in('role', ['student', 'staff']);
+
+      if (profiles && profiles.length > 0) {
+        const notifications = profiles.map(p => ({
+          recipient_id: p.id,
+          recipient_type: p.role,
+          title: supportSubject,
+          message: supportMessage,
+          type: 'announcement',
+          is_read: false
+        }));
+
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notifError) throw notifError;
+      }
+
+      Alert.alert('Success', 'Message sent successfully to all students and staff!');
+      setSupportSubject('');
       setSupportMessage('');
       setSupportModal(false);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send message.');
+    } finally {
+      setLoadingSupport(false);
     }
   };
 
@@ -193,23 +318,38 @@ export default function AdminSettingsScreen() {
   if (loadingProfile) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={darkMode ? COLORS.primary : COLORS.primary} />
       </View>
     );
   }
 
+  // Dynamic colors based on dark mode
+  const currentColors = darkMode ? DARK_COLORS : COLORS;
+  const containerStyle = {
+    backgroundColor: darkMode ? COLORS.backgroundDark : COLORS.background,
+  };
+  const surfaceStyle = {
+    backgroundColor: darkMode ? COLORS.surfaceDark : COLORS.surface,
+  };
+  const textStyle = {
+    color: darkMode ? COLORS.textDark : COLORS.text,
+  };
+  const textLightStyle = {
+    color: darkMode ? COLORS.textLightDark : COLORS.textLight,
+  };
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+    <View style={[styles.container, containerStyle]}>
+      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={darkMode ? COLORS.backgroundDark : COLORS.background} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* PROFILE HEADER */}
-        <Animated.View style={[styles.profileCard, headerStyle]}>
+        <Animated.View style={[styles.profileCard, headerStyle, surfaceStyle]}>
           <View style={styles.profileHeader}>
             <TouchableOpacity onPress={handleUploadPhoto}>
               {profile.image ? (
                 <Image source={{ uri: profile.image }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatar}>
+                <View style={[styles.avatar, { backgroundColor: darkMode ? COLORS.primary : COLORS.primary }]}>
                   <Ionicons name="person" size={40} color="#fff" />
                 </View>
               )}
@@ -219,73 +359,72 @@ export default function AdminSettingsScreen() {
             </TouchableOpacity>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
-              <Text style={styles.name}>{profile.name}</Text>
-              <Text style={styles.email}>{profile.email}</Text>
+              <Text style={[styles.name, textStyle]}>{profile.name}</Text>
+              <Text style={[styles.email, textLightStyle]}>{profile.email}</Text>
             </View>
 
             <TouchableOpacity onPress={() => navigation.navigate('AdminProfile')}>
-              <Ionicons name="pencil" size={20} color={COLORS.primary} />
+              <Ionicons name="pencil" size={20} color={darkMode ? COLORS.primary : COLORS.primary} />
             </TouchableOpacity>
           </View>
         </Animated.View>
 
         {/* DASHBOARD */}
-       {/* DASHBOARD */}
-<View style={styles.section}>
-  <Text style={styles.sectionTitle}>Dashboard</Text>
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, textStyle]}>Dashboard</Text>
 
-  <TouchableOpacity
-    style={styles.dashboardCard}
-    onPress={() => navigation.navigate('Staff')}
-  >
-    <MaterialIcons name="people-outline" size={24} color={COLORS.primary} />
-    <Text style={styles.dashboardText}>Manage Staff</Text>
-  </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dashboardCard, surfaceStyle]}
+            onPress={() => navigation.navigate('Staff')}
+          >
+            <MaterialIcons name="people-outline" size={24} color={darkMode ? COLORS.primary : COLORS.primary} />
+            <Text style={[styles.dashboardText, textStyle]}>Manage Staff</Text>
+          </TouchableOpacity>
 
-  <TouchableOpacity
-    style={styles.dashboardCard}
-    onPress={() => navigation.navigate('Complaints')}
-  >
-    <MaterialIcons name="error-outline" size={24} color={COLORS.primary} />
-    <Text style={styles.dashboardText}>View Complaints</Text>
-  </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dashboardCard, surfaceStyle]}
+            onPress={() => navigation.navigate('Complaints')}
+          >
+            <MaterialIcons name="error-outline" size={24} color={darkMode ? COLORS.primary : COLORS.primary} />
+            <Text style={[styles.dashboardText, textStyle]}>View Complaints</Text>
+          </TouchableOpacity>
 
-  <TouchableOpacity
-    style={styles.dashboardCard}
-    onPress={() => navigation.navigate('Students')}
-  >
-    <MaterialIcons name="assignment" size={24} color={COLORS.primary} />
-    <Text style={styles.dashboardText}>Manage Students</Text>
-  </TouchableOpacity>
-</View>
+          <TouchableOpacity
+            style={[styles.dashboardCard, surfaceStyle]}
+            onPress={() => navigation.navigate('Students')}
+          >
+            <MaterialIcons name="assignment" size={24} color={darkMode ? COLORS.primary : COLORS.primary} />
+            <Text style={[styles.dashboardText, textStyle]}>Manage Students</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* PREFERENCES */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Preferences</Text>
           {renderToggle('Push Notifications', notifications, setNotifications)}
-          {renderToggle('Dark Mode', darkMode, setDarkMode)}
+          {renderToggle('Dark Mode', darkMode, toggleDarkMode)}
         </View>
 
         {/* SECURITY */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Security</Text>
           {renderToggle('Two-Factor Authentication', twoFactor, setTwoFactor)}
-          <TouchableOpacity style={styles.actionItem} onPress={() => setPasswordModal(true)}>
-            <Text style={styles.actionText}>Change Password</Text>
-            <Ionicons name="chevron-forward" size={18} />
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => setPasswordModal(true)}>
+            <Text style={[styles.actionText, textStyle]}>Change Password</Text>
+            <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
           </TouchableOpacity>
         </View>
 
         {/* FAQ */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Help & FAQ</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Help & FAQ</Text>
           {faqs.map((f, i) => (
-            <View key={i} style={styles.faqItem}>
+            <View key={i} style={[styles.faqItem, surfaceStyle]}>
               <TouchableOpacity onPress={() => toggleFaq(i)} style={styles.faqHeader}>
-                <Text style={styles.faqQ}>{f.q}</Text>
-                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} />
+                <Text style={[styles.faqQ, textStyle]}>{f.q}</Text>
+                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} color={darkMode ? COLORS.textDark : COLORS.text} />
               </TouchableOpacity>
-              {openFaqIndex === i && <Text style={styles.faqA}>{f.a}</Text>}
+              {openFaqIndex === i && <Text style={[styles.faqA, textLightStyle]}>{f.a}</Text>}
             </View>
           ))}
           <TouchableOpacity style={styles.contactBtn} onPress={() => setSupportModal(true)}>
@@ -302,104 +441,159 @@ export default function AdminSettingsScreen() {
       </ScrollView>
 
       {/* PASSWORD MODAL */}
-      <Modal visible={passwordModal} transparent animationType="slide">
-        <Animated.View style={[styles.modalContainer, headerStyle]}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Change Password</Text>
-
-            {/* Current Password */}
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Current Password"
-                secureTextEntry={!showCurrent}
-                style={styles.input}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-              />
-              <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowCurrent(!showCurrent)}>
-                <Ionicons name={showCurrent ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textLight} />
+      <Modal visible={passwordModal} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalContainer} activeOpacity={1} onPress={() => setPasswordModal(false)}>
+          <Animated.View style={[styles.modalContent, { opacity: passwordModalOpacity, transform: [{ translateY: passwordModalTranslateY }] }]}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="lock-closed-outline" size={24} color={COLORS.primary} />
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setPasswordModal(false)}>
+                <Ionicons name="close-outline" size={24} color={COLORS.textLight} />
               </TouchableOpacity>
             </View>
 
-            {/* New Password */}
-            <View style={styles.inputWrapper}>
-              <Ionicons name="key-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
-              <TextInput
-                placeholder="New Password"
-                secureTextEntry={!showNew}
-                style={styles.input}
-                value={newPassword}
-                onChangeText={setNewPassword}
-              />
-              <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowNew(!showNew)}>
-                <Ionicons name={showNew ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textLight} />
-              </TouchableOpacity>
-            </View>
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Current Password */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Current Password *</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Enter current password"
+                    secureTextEntry={!showCurrent}
+                    style={[styles.input, { paddingHorizontal: 40 }]}
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                  <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowCurrent(!showCurrent)}>
+                    <Ionicons name={showCurrent ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-            {/* Confirm Password */}
-            <View style={styles.inputWrapper}>
-              <Ionicons name="key-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Confirm New Password"
-                secureTextEntry={!showConfirm}
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-              <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirm(!showConfirm)}>
-                <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textLight} />
-              </TouchableOpacity>
-            </View>
+              {/* New Password */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>New Password *</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="key-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Enter new password"
+                    secureTextEntry={!showNew}
+                    style={[styles.input, { paddingHorizontal: 40 }]}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                  <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowNew(!showNew)}>
+                    <Ionicons name={showNew ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Confirm New Password *</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="key-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Confirm new password"
+                    secureTextEntry={!showConfirm}
+                    style={[styles.input, { paddingHorizontal: 40 }]}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                  <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirm(!showConfirm)}>
+                    <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
 
             {loadingPassword ? (
-              <ActivityIndicator style={{ marginTop: 12 }} />
+              <ActivityIndicator style={{ marginVertical: 20 }} color={COLORS.primary} />
             ) : (
               <TouchableOpacity style={styles.modalButton} onPress={handleChangePassword}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Update Password</Text>
+                <Ionicons name="checkmark-done-outline" size={20} color="#fff" />
+                <Text style={styles.modalButtonText}>Update Password</Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity onPress={() => setPasswordModal(false)}>
-              <Text style={{ marginTop: 10, color: COLORS.secondary, textAlign: 'center' }}>Cancel</Text>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setPasswordModal(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </TouchableOpacity>
       </Modal>
 
       {/* SUPPORT MODAL */}
-      <Modal visible={supportModal} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Send Message</Text>
-            <TextInput
-              placeholder="Write your message..."
-              multiline
-              style={[styles.input, { height: 120 }]}
-              value={supportMessage}
-              onChangeText={setSupportMessage}
-            />
-            {loadingSupport ? (
-              <ActivityIndicator style={{ marginTop: 12 }} />
-            ) : (
-              <TouchableOpacity style={styles.modalButton} onPress={handleSendSupport}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Send</Text>
+      <Modal visible={supportModal} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalContainer} activeOpacity={1} onPress={() => setSupportModal(false)}>
+          <Animated.View style={[styles.modalContent, { opacity: modalOpacity, transform: [{ translateY: modalTranslateY }] }]}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="chatbox-ellipses-outline" size={24} color={COLORS.primary} />
+              <Text style={styles.modalTitle}>Send Support Message</Text>
+              <TouchableOpacity onPress={() => setSupportModal(false)}>
+                <Ionicons name="close-outline" size={24} color={COLORS.textLight} />
               </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => setSupportModal(false)}>
-              <Text style={{ marginTop: 10, color: COLORS.secondary, textAlign: 'center' }}>Cancel</Text>
+            </View>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Subject *</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[styles.input, { paddingHorizontal: 16 }]}
+                    placeholder="Enter subject"
+                    placeholderTextColor={COLORS.textLight}
+                    value={supportSubject}
+                    onChangeText={setSupportSubject}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Message *</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[styles.input, { height: 120, textAlignVertical: 'top', paddingHorizontal: 16 }]}
+                    placeholder="Describe your issue..."
+                    placeholderTextColor={COLORS.textLight}
+                    multiline
+                    numberOfLines={4}
+                    value={supportMessage}
+                    onChangeText={setSupportMessage}
+                  />
+                </View>
+                <Text style={styles.counterText}>{supportMessage.length}/500</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalButton} onPress={handleSendSupport} disabled={loadingSupport}>
+              <Ionicons name="send" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>{loadingSupport ? 'Sending...' : 'Send Message'}</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setSupportModal(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
 
   function renderToggle(label: string, value: boolean, setter: any) {
     return (
-      <View style={styles.toggleItem}>
-        <Text style={styles.toggleText}>{label}</Text>
-        <Switch value={value} onValueChange={setter} />
+      <View style={[styles.toggleItem, surfaceStyle]}>
+        <Text style={[styles.toggleText, textStyle]}>{label}</Text>
+        <Switch 
+          value={value} 
+          onValueChange={setter}
+          trackColor={{ true: darkMode ? COLORS.primary : '#1E5F9E', false: '#ccc' }}
+          thumbColor={Platform.OS === 'android' ? (darkMode ? COLORS.surfaceDark : '#fff') : undefined}
+        />
       </View>
     );
   }
@@ -431,11 +625,19 @@ const styles = StyleSheet.create({
   logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.secondary, padding: 15, margin: 16, borderRadius: 12 },
   logoutText: { color: '#fff', fontSize: 16, fontWeight: '700', marginLeft: 8 },
   modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalBox: { width: '85%', backgroundColor: COLORS.surface, padding: 20, borderRadius: 12 },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: COLORS.text, textAlign: 'center' },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, position: 'relative' },
-  inputIcon: { position: 'absolute', left: 10, zIndex: 10 },
-  input: { flex: 1, backgroundColor: '#f2f2f2', padding: 12, borderRadius: 8, paddingLeft: 36 },
-  eyeIcon: { position: 'absolute', right: 10 },
-  modalButton: { backgroundColor: COLORS.primary, padding: 12, alignItems: 'center', borderRadius: 8, marginTop: 8 },
+  modalContent: { width: '90%', maxWidth: 400, maxHeight: '80%', backgroundColor: COLORS.surface, borderRadius: 20, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 } },
+  modalScroll: { paddingHorizontal: 24 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', backgroundColor: COLORS.surface },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginLeft: 12, flex: 1 },
+  inputContainer: { paddingVertical: 8, marginBottom: 4 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, backgroundColor: COLORS.surface, overflow: 'hidden', minHeight: 50, marginBottom: 12 },
+  input: { flex: 1, borderWidth: 0, borderRadius: 0, paddingHorizontal: 40, paddingVertical: 14, fontSize: 16, color: COLORS.text, minHeight: 50 },
+  inputIcon: { position: 'absolute', left: 14, zIndex: 10 },
+  eyeIcon: { position: 'absolute', right: 14, padding: 10, zIndex: 10 },
+  counterText: { fontSize: 12, color: COLORS.textLight, alignSelf: 'flex-end', marginTop: 4, marginBottom: 8 },
+  modalButton: { flexDirection: 'row', backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginHorizontal: 24, marginBottom: 16, marginTop: 8 },
+  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  cancelButton: { alignItems: 'center', paddingVertical: 16, marginBottom: 24 },
+  cancelText: { color: COLORS.secondary, fontSize: 16, fontWeight: '600' },
 });

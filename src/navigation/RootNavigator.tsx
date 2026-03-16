@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { ProfileProvider } from '../context/ProfileContext';
+import { ThemeProvider } from '../context/ThemeContext';
 import AuthNavigator from './AuthNavigator';
 import { AuthProvider } from '../context/AuthContext';
 import StudentNavigator from './StudentNavigator';
@@ -82,27 +83,30 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <AuthProvider logout={handleLogout} />
-      {userRole ? (
-        // Only authenticated users get ProfileProvider
-        <ProfileProvider>
-          {userRole === 'student' && <StudentNavigator />}
-          {userRole === 'admin' && <AdminNavigator />}
-          {userRole === 'staff' && <StaffNavigator />}
-        </ProfileProvider>
-      ) : (
-        // Unauthenticated users see AuthNavigator
-        <AuthNavigator
-          setUserRole={async (role: string) => {
-            if (role === 'student' || role === 'admin' || role === 'staff') {
-              await AsyncStorage.setItem('userRole', role);
-              setUserRole(role);
-            } else {
-              console.warn(`Invalid role: ${role}`);
-            }
-          }}
-        />
-      )}
+      <ThemeProvider>
+        <AuthProvider logout={handleLogout}>
+          {userRole ? (
+            // Only authenticated users get ProfileProvider
+            <ProfileProvider>
+              {userRole === 'student' && <StudentNavigator />}
+              {userRole === 'admin' && <AdminNavigator />}
+              {userRole === 'staff' && <StaffNavigator />}
+            </ProfileProvider>
+          ) : (
+            // Unauthenticated users see AuthNavigator
+            <AuthNavigator
+              setUserRole={async (role: string) => {
+                if (role === 'student' || role === 'admin' || role === 'staff') {
+                  await AsyncStorage.setItem('userRole', role);
+                  setUserRole(role);
+                } else {
+                  console.warn(`Invalid role: ${role}`);
+                }
+              }}
+            />
+          )}
+        </AuthProvider>
+      </ThemeProvider>
     </NavigationContainer>
   );
 }

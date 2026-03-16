@@ -29,6 +29,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../services/supabase';
 import { ProfileContext } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +45,7 @@ export default function StaffHome({ navigation }: any) {
     trend: 'stable',
     message: '',
   });
+  const { isDark, colors } = useTheme();
 
   // Send message states
   const [supportModal, setSupportModal] = useState(false);
@@ -413,23 +415,23 @@ export default function StaffHome({ navigation }: any) {
 
   // --- Render ---
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
-        <Animated.View style={[styles.container, headerStyle]}>
+        <Animated.View style={[styles.container, headerStyle, { backgroundColor: colors.background }]}>
           {/* HEADER */}
           <View style={styles.header}>
         <View>
-  <Text style={styles.headerTitle}>Welcome Back,</Text>
-  {fullName ? (
-    <Text style={styles.headerFullName}>{fullName}</Text>
-  ) : (
-    <Text style={styles.headerSubtitle}>Loading...</Text>
-  )}
-</View>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Welcome Back,</Text>
+          {fullName ? (
+            <Text style={[styles.headerFullName, { color: colors.primary }]}>{fullName}</Text>
+          ) : (
+            <Text style={[styles.headerSubtitle, { color: colors.textLight }]}>Loading...</Text>
+          )}
+        </View>
             <View style={styles.topIcons}>
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
-                <Ionicons name="log-out-outline" size={26} color="#0F3057" />
+                <Ionicons name="log-out-outline" size={26} color={colors.text} />
               </TouchableOpacity>
 
               <View style={styles.profileContainer}>
@@ -474,19 +476,19 @@ export default function StaffHome({ navigation }: any) {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <ActionsSection />
 
-          <Text style={styles.sectionTitle}>Recent Assignment</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Assignment</Text>
           <RecentAssignmentsSection />
 
-          <Text style={styles.sectionTitle}>Announcements</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Announcements</Text>
           <Animated.View style={styles.announcementsContainer}>
             {announcements.length === 0 ? (
-              <Text style={styles.noAnnouncementsText}>No announcements at this time</Text>
+              <Text style={[styles.noAnnouncementsText, { color: colors.textLight }]}>No announcements at this time</Text>
             ) : (
               announcements.map((announcement, idx) => (
-                <View key={announcement.id || idx} style={styles.announcementCard}>
-                  <Text style={styles.announcementTitle}>{announcement.title}</Text>
-                  <Text style={styles.announcementText}>{announcement.content}</Text>
-                  <Text style={styles.announcementDate}>
+                <View key={announcement.id || idx} style={[styles.announcementCard, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.announcementTitle, { color: colors.text }]}>{announcement.title}</Text>
+                  <Text style={[styles.announcementText, { color: colors.text }]}>{announcement.content}</Text>
+                  <Text style={[styles.announcementDate, { color: colors.textLight }]}>
                     {new Date(announcement.created_at).toLocaleDateString()}
                   </Text>
                 </View>
@@ -495,29 +497,29 @@ export default function StaffHome({ navigation }: any) {
           </Animated.View>
 
           {/* Performance Insights */}
-          <Text style={styles.sectionTitle}>Performance Insights</Text>
-          <View style={styles.performanceCard}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Insights</Text>
+          <View style={[styles.performanceCard, { backgroundColor: colors.surface }]}>
             <View style={styles.performanceHeader}>
-              <Ionicons name="analytics-outline" size={20} color="#1E5F9E" />
-              <Text style={styles.performanceTitle}>Your Performance</Text>
+              <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+              <Text style={[styles.performanceTitle, { color: colors.text }]}>Your Performance</Text>
             </View>
-            <Text style={styles.performanceText}>
+            <Text style={[styles.performanceText, { color: colors.textLight }]}>
               {performanceInsights.message || 'No data available yet.'}
             </Text>
             <View style={styles.performanceMetrics}>
               <View style={styles.performanceMetricItem}>
-                <Text style={styles.performanceMetricValue}>{performanceInsights.resolutionRate}%</Text>
-                <Text style={styles.performanceMetricLabel}>Resolved</Text>
+                <Text style={[styles.performanceMetricValue, { color: colors.primary }]}>{performanceInsights.resolutionRate}%</Text>
+                <Text style={[styles.performanceMetricLabel, { color: colors.textLight }]}>Resolved</Text>
               </View>
               <View style={styles.performanceMetricItem}>
-                <Text style={styles.performanceMetricValue}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
-                <Text style={styles.performanceMetricLabel}>Avg Days</Text>
+                <Text style={[styles.performanceMetricValue, { color: colors.primary }]}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
+                <Text style={[styles.performanceMetricLabel, { color: colors.textLight }]}>Avg Days</Text>
               </View>
               <View style={styles.performanceMetricItem}>
-                <Ionicons 
-                  name={performanceInsights.trend === 'improving' ? 'trending-up' : performanceInsights.trend === 'declining' ? 'trending-down' : 'remove'} 
-                  size={24} 
-                  color={performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800'} 
+                <Ionicons
+                  name={performanceInsights.trend === 'improving' ? 'trending-up' : performanceInsights.trend === 'declining' ? 'trending-down' : 'remove'}
+                  size={24}
+                  color={performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800'}
                 />
                 <Text style={[styles.performanceMetricLabel, { color: performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800' }]}>
                   {performanceInsights.trend.charAt(0).toUpperCase() + performanceInsights.trend.slice(1)}

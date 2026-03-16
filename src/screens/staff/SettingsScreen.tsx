@@ -17,17 +17,44 @@ import {
   Linking,
   Modal,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../services/supabase';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+const COLORS = {
+  primary: '#1E5F9E',
+  secondary: '#FF3B30',
+  background: '#F4F7FB',
+  backgroundDark: '#1A1A2E',
+  surface: '#FFFFFF',
+  surfaceDark: '#16213E',
+  text: '#0F3057',
+  textDark: '#E8E8E8',
+  textLight: '#6B7280',
+  textLightDark: '#A0A0A0',
+  border: '#E5E7EB',
+};
+
+const DARK_COLORS = {
+  primary: '#3B82F6',
+  secondary: '#FF3B30',
+  background: '#1A1A2E',
+  surface: '#16213E',
+  text: '#E8E8E8',
+  textLight: '#A0A0A0',
+};
+
 export default function SettingsScreen({ navigation }: any) {
+  const { isDark, toggleTheme } = useTheme();
   const faqs = [
     { q: 'How do I update assignment status?', a: 'Open the complaint from the Assigned tab and mark it resolved or in-progress.' },
     { q: 'How to escalate a complaint?', a: 'Use the escalate button inside complaint details.' },
@@ -79,6 +106,16 @@ export default function SettingsScreen({ navigation }: any) {
   useEffect(() => {
     fetchStaffProfile();
   }, []);
+
+  // Sync darkModeEnabled state with ThemeContext
+  useEffect(() => {
+    setDarkModeEnabled(isDark);
+  }, [isDark]);
+
+  const toggleDarkMode = async (value: boolean) => {
+    setDarkModeEnabled(value);
+    toggleTheme(value); // Use ThemeContext's toggleTheme
+  };
 
   const handleUploadPhoto = async () => {
     try {
@@ -213,14 +250,29 @@ export default function SettingsScreen({ navigation }: any) {
     buttonScale.value = withSpring(1);
   };
 
+  // Dynamic colors based on dark mode
+  const containerStyle = {
+    backgroundColor: darkModeEnabled ? COLORS.backgroundDark : COLORS.background,
+  };
+  const surfaceStyle = {
+    backgroundColor: darkModeEnabled ? COLORS.surfaceDark : COLORS.surface,
+  };
+  const textStyle = {
+    color: darkModeEnabled ? COLORS.textDark : COLORS.text,
+  };
+  const textLightStyle = {
+    color: darkModeEnabled ? COLORS.textLightDark : COLORS.textLight,
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, containerStyle]}>
+      <StatusBar barStyle={darkModeEnabled ? 'light-content' : 'dark-content'} backgroundColor={darkModeEnabled ? COLORS.backgroundDark : COLORS.background} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerContainer}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back-outline" size={24} color="#0F3057" />
+            <Ionicons name="arrow-back-outline" size={24} color={darkModeEnabled ? COLORS.textDark : COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={[styles.headerTitle, textStyle]}>Settings</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.profileSection}>
@@ -228,28 +280,28 @@ export default function SettingsScreen({ navigation }: any) {
             {profileImage ? (
               <Image source={{ uri: profileImage }} style={styles.profileAvatar} />
             ) : (
-              <View style={styles.profileAvatar}><Ionicons name="person-circle-outline" size={80} color="#1E5F9E" /></View>
+              <View style={[styles.profileAvatar, { backgroundColor: darkModeEnabled ? COLORS.primary : COLORS.primary }]}><Ionicons name="person-circle-outline" size={80} color={darkModeEnabled ? COLORS.primary : COLORS.primary} /></View>
             )}
             <View style={styles.profileCamera}><Ionicons name="camera" size={20} color="#fff" /></View>
           </TouchableOpacity>
-          <Text style={styles.adminName}>{staffName}</Text>
+          <Text style={[styles.adminName, textStyle]}>{staffName}</Text>
         </View>
 
         <View style={styles.settingsSection}>
-          <View style={styles.settingItem}><Text style={styles.settingLabel}>Enable Notifications</Text><Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} trackColor={{ true: '#1E5F9E', false: '#ccc' }} thumbColor={Platform.OS === 'android' ? '#fff' : undefined} /></View>
-          <View style={styles.settingItem}><Text style={styles.settingLabel}>Dark Mode</Text><Switch value={darkModeEnabled} onValueChange={setDarkModeEnabled} trackColor={{ true: '#1E5F9E', false: '#ccc' }} thumbColor={Platform.OS === 'android' ? '#fff' : undefined} /></View>
+          <View style={[styles.settingItem, surfaceStyle]}><Text style={[styles.settingLabel, textStyle]}>Enable Notifications</Text><Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} trackColor={{ true: darkModeEnabled ? COLORS.primary : '#1E5F9E', false: '#ccc' }} thumbColor={Platform.OS === 'android' ? (darkModeEnabled ? COLORS.surfaceDark : '#fff') : undefined} /></View>
+          <View style={[styles.settingItem, surfaceStyle]}><Text style={[styles.settingLabel, textStyle]}>Dark Mode</Text><Switch value={darkModeEnabled} onValueChange={toggleDarkMode} trackColor={{ true: darkModeEnabled ? COLORS.primary : '#1E5F9E', false: '#ccc' }} thumbColor={Platform.OS === 'android' ? (darkModeEnabled ? COLORS.surfaceDark : '#fff') : undefined} /></View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Help & Support</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Help & Support</Text>
 
           {faqs.map((f, i) => (
-            <View key={i} style={styles.faqItem}>
+            <View key={i} style={[styles.faqItem, surfaceStyle]}>
               <TouchableOpacity onPress={() => toggleFaq(i)} style={styles.faqHeader}>
-                <Text style={styles.faqQ}>{f.q}</Text>
-                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} />
+                <Text style={[styles.faqQ, textStyle]}>{f.q}</Text>
+                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} color={darkModeEnabled ? COLORS.textDark : COLORS.text} />
               </TouchableOpacity>
-              {openFaqIndex === i && <Text style={styles.faqA}>{f.a}</Text>}
+              {openFaqIndex === i && <Text style={[styles.faqA, textLightStyle]}>{f.a}</Text>}
             </View>
           ))}
 
@@ -280,34 +332,34 @@ export default function SettingsScreen({ navigation }: any) {
         <TouchableOpacity style={styles.modalContainer} activeOpacity={1} onPress={() => setSupportModal(false)}>
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={[styles.modalBox, {maxHeight: '80%'}]}>
             <Animated.View style={[styles.modalBox, modalStyle]}>
-              <View style={styles.modalHeader}>
-                <Ionicons name="chatbox-ellipses-outline" size={24} color="#1E5F9E" />
-                <Text style={styles.modalTitle}>Send Support Message</Text>
+              <View style={[styles.modalHeader, { borderBottomColor: darkModeEnabled ? COLORS.border : COLORS.border }]}>
+                <Ionicons name="chatbox-ellipses-outline" size={24} color={darkModeEnabled ? COLORS.primary : COLORS.primary} />
+                <Text style={[styles.modalTitle, textStyle]}>Send Support Message</Text>
                 <TouchableOpacity onPress={() => setSupportModal(false)}>
-                  <Ionicons name="close-outline" size={24} color="#6B7280" />
+                  <Ionicons name="close-outline" size={24} color={darkModeEnabled ? COLORS.textLightDark : COLORS.textLight} />
                 </TouchableOpacity>
               </View>
-              
+
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Subject *</Text>
-                <View style={[styles.inputWrapper, { minHeight: 50 }]}>
+                <Text style={[styles.label, textStyle]}>Subject *</Text>
+                <View style={[styles.inputWrapper, { minHeight: 50, borderColor: darkModeEnabled ? COLORS.border : COLORS.border }]}>
                   <TextInput
-                    style={[styles.input, { minHeight: 50, paddingVertical: 16 }]}
+                    style={[styles.input, { minHeight: 50, paddingVertical: 16, color: darkModeEnabled ? COLORS.textDark : COLORS.text }]}
                     placeholder="Enter subject"
                     value={supportSubject}
                     onChangeText={setSupportSubject}
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor={darkModeEnabled ? COLORS.textLightDark : COLORS.textLight}
                   />
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Message *</Text>
-                <View style={[styles.inputWrapper, { minHeight: 120 }]}>
+                <Text style={[styles.label, textStyle]}>Message *</Text>
+                <View style={[styles.inputWrapper, { minHeight: 120, borderColor: darkModeEnabled ? COLORS.border : COLORS.border }]}>
                   <TextInput
-                    style={[styles.input, styles.textArea, { paddingVertical: 16 }]}
+                    style={[styles.input, styles.textArea, { paddingVertical: 16, color: darkModeEnabled ? COLORS.textDark : COLORS.text }]}
                     placeholder="Describe your issue..."
                     multiline
                     numberOfLines={4}
@@ -315,16 +367,16 @@ export default function SettingsScreen({ navigation }: any) {
                     onChangeText={setSupportMessage}
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor={darkModeEnabled ? COLORS.textLightDark : COLORS.textLight}
                     textAlignVertical="top"
                   />
                 </View>
-                <Text style={styles.counterText}>{supportMessage.length}/500</Text>
+                <Text style={[styles.counterText, textLightStyle]}>{supportMessage.length}/500</Text>
               </View>
 
-              <TouchableOpacity 
-                style={[styles.modalButton, buttonPressStyle]} 
-                onPress={handleSendSupport} 
+              <TouchableOpacity
+                style={[styles.modalButton, buttonPressStyle]}
+                onPress={handleSendSupport}
                 onPressIn={handleButtonPressIn}
                 onPressOut={handleButtonPressOut}
                 disabled={loadingSupport}
@@ -332,7 +384,7 @@ export default function SettingsScreen({ navigation }: any) {
                 <Ionicons name="send" size={20} color="#fff" />
                 <Text style={styles.modalButtonText}>{loadingSupport ? 'Sending...' : 'Send Message'}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.cancelButton} onPress={() => setSupportModal(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -343,16 +395,6 @@ export default function SettingsScreen({ navigation }: any) {
     </SafeAreaView>
   );
 }
-
-const COLORS = {
-  primary: '#1E5F9E',
-  secondary: '#FF3B30',
-  background: '#F4F7FB',
-  surface: '#FFFFFF',
-  text: '#0F3057',
-  textLight: '#6B7280',
-  border: '#E5E7EB',
-};
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },

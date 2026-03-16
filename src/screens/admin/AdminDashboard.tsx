@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   View,
   Text,
@@ -25,6 +26,7 @@ const { width } = Dimensions.get('window');
 export default function AdminDashboard({ navigation }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const { logout } = useAuth();
+  const { isDark, colors } = useTheme();
 
   // 🔹 NEW: ADMIN NAME STATE
   const [adminName, setAdminName] = useState<string>('Loading...');
@@ -331,21 +333,21 @@ export default function AdminDashboard({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
-        <Animated.View style={[styles.container, animatedStyle]}>
+        <Animated.View style={[styles.container, animatedStyle, { backgroundColor: colors.background }]}>
 
           {/* HEADER */}
           <View style={styles.header}>
          <View>
-  <Text style={styles.headerTitle}>Welcome Back,</Text>
-  <Text style={styles.headerName}>{adminName}</Text>
-</View>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Welcome Back,</Text>
+          <Text style={[styles.headerName, { color: colors.primary }]}>{adminName}</Text>
+        </View>
 
             <View style={styles.topIcons}>
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
-                <Ionicons name="log-out-outline" size={26} color="#0F3057" />
+                <Ionicons name="log-out-outline" size={26} color={colors.text} />
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('AdminProfile')}>
@@ -379,17 +381,17 @@ export default function AdminDashboard({ navigation }: any) {
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>System Overview</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>System Overview</Text>
           <View style={styles.kpiContainer}>
             {kpis.map((item, i) => (
-              <View key={i} style={[styles.kpiCard, { transform: [{ translateY: i % 2 ? 6 : 0 }] }]}>
-                <Text style={styles.kpiValue}>{item.value}</Text>
-                <Text style={styles.kpiLabel}>{item.label}</Text>
+              <View key={i} style={[styles.kpiCard, { backgroundColor: colors.surface, transform: [{ translateY: i % 2 ? 6 : 0 }] }]}>
+                <Text style={[styles.kpiValue, { color: colors.primary }]}>{item.value}</Text>
+                <Text style={[styles.kpiLabel, { color: colors.textLight }]}>{item.label}</Text>
               </View>
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>Complaint Breakdown</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Complaint Breakdown</Text>
           <View style={styles.breakdownContainer}>
             {breakdown.map((b, i) => (
               <View key={i} style={[styles.breakdownCard, { backgroundColor: b.color }]}>
@@ -399,35 +401,35 @@ export default function AdminDashboard({ navigation }: any) {
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>Management Tools</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Management Tools</Text>
           <View style={styles.toolsGrid}>
-            <TouchableOpacity style={styles.toolCard} onPress={() => navigation.navigate('AllComplaints')}>
-              <Ionicons name="list" size={28} color="#1E5F9E" />
-              <Text style={styles.toolText}>All Complaints</Text>
+            <TouchableOpacity style={[styles.toolCard, { backgroundColor: colors.surface }]} onPress={() => navigation.navigate('AllComplaints')}>
+              <Ionicons name="list" size={28} color={colors.primary} />
+              <Text style={[styles.toolText, { color: colors.text }]}>All Complaints</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toolCard} onPress={() => navigation.navigate('ManageStaff')}>
-              <Ionicons name="people" size={28} color="#1E5F9E" />
-              <Text style={styles.toolText}>Manage Staff</Text>
+            <TouchableOpacity style={[styles.toolCard, { backgroundColor: colors.surface }]} onPress={() => navigation.navigate('ManageStaff')}>
+              <Ionicons name="people" size={28} color={colors.primary} />
+              <Text style={[styles.toolText, { color: colors.text }]}>Manage Staff</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toolCard} onPress={() => navigation.navigate('ManageStudents')}>
-              <Ionicons name="school" size={28} color="#1E5F9E" />
-              <Text style={styles.toolText}>Manage Students</Text>
+            <TouchableOpacity style={[styles.toolCard, { backgroundColor: colors.surface }]} onPress={() => navigation.navigate('ManageStudents')}>
+              <Ionicons name="school" size={28} color={colors.primary} />
+              <Text style={[styles.toolText, { color: colors.text }]}>Manage Students</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toolCard} onPress={() => navigation.navigate('Reports')}>
-              <Ionicons name="bar-chart" size={28} color="#1E5F9E" />
-              <Text style={styles.toolText}>Reports</Text>
+            <TouchableOpacity style={[styles.toolCard, { backgroundColor: colors.surface }]} onPress={() => navigation.navigate('Reports')}>
+              <Ionicons name="bar-chart" size={28} color={colors.primary} />
+              <Text style={[styles.toolText, { color: colors.text }]}>Reports</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionTitle}>Recent Complaints</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Complaints</Text>
           <FlatList data={recentComplaints} keyExtractor={item => item.id} renderItem={renderComplaint} scrollEnabled={false} />
 
-          <Text style={styles.sectionTitle}>Messages</Text>
-          <View style={styles.messagesSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Messages</Text>
+          <View style={[styles.messagesSection, { backgroundColor: colors.surface }]}>
             {messages.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name="mail-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyText}>No messages yet</Text>
+                <Ionicons name="mail-outline" size={48} color={colors.textLight} />
+                <Text style={[styles.emptyText, { color: colors.textLight }]}>No messages yet</Text>
               </View>
             ) : (
               <FlatList
@@ -454,29 +456,29 @@ export default function AdminDashboard({ navigation }: any) {
             )}
           </View>
 
-          <Text style={styles.sectionTitle}>Performance Insights</Text>
-          <View style={styles.performanceCard}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Insights</Text>
+          <View style={[styles.performanceCard, { backgroundColor: colors.surface }]}>
             <View style={styles.performanceHeader}>
-              <Ionicons name="analytics-outline" size={20} color="#1E5F9E" />
-              <Text style={styles.performanceTitle}>System Performance</Text>
+              <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+              <Text style={[styles.performanceTitle, { color: colors.text }]}>System Performance</Text>
             </View>
-            <Text style={styles.performanceText}>
+            <Text style={[styles.performanceText, { color: colors.textLight }]}>
               {performanceInsights.message || 'Loading performance data...'}
             </Text>
             <View style={styles.performanceMetrics}>
               <View style={styles.performanceMetricItem}>
-                <Text style={styles.performanceMetricValue}>{performanceInsights.resolutionRate}%</Text>
-                <Text style={styles.performanceMetricLabel}>Resolution Rate</Text>
+                <Text style={[styles.performanceMetricValue, { color: colors.primary }]}>{performanceInsights.resolutionRate}%</Text>
+                <Text style={[styles.performanceMetricLabel, { color: colors.textLight }]}>Resolution Rate</Text>
               </View>
               <View style={styles.performanceMetricItem}>
-                <Text style={styles.performanceMetricValue}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
-                <Text style={styles.performanceMetricLabel}>Avg Days</Text>
+                <Text style={[styles.performanceMetricValue, { color: colors.primary }]}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
+                <Text style={[styles.performanceMetricLabel, { color: colors.textLight }]}>Avg Days</Text>
               </View>
               <View style={styles.performanceMetricItem}>
-                <Ionicons 
-                  name={performanceInsights.trend === 'improving' ? 'trending-up' : performanceInsights.trend === 'declining' ? 'trending-down' : 'remove'} 
-                  size={24} 
-                  color={performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800'} 
+                <Ionicons
+                  name={performanceInsights.trend === 'improving' ? 'trending-up' : performanceInsights.trend === 'declining' ? 'trending-down' : 'remove'}
+                  size={24}
+                  color={performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800'}
                 />
                 <Text style={[styles.performanceMetricLabel, { color: performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800' }]}>
                   {performanceInsights.improvement > 0 ? `+${performanceInsights.improvement}%` : performanceInsights.trend}

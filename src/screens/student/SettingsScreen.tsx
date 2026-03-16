@@ -17,11 +17,13 @@ import {
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ProfileContext, ProfileData } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 
@@ -33,10 +35,23 @@ const COLORS = {
   primary: '#1E5F9E',
   secondary: '#FF3B30',
   background: '#F4F7FB',
+  backgroundDark: '#1A1A2E',
   surface: '#FFFFFF',
+  surfaceDark: '#16213E',
   text: '#0F3057',
+  textDark: '#E8E8E8',
   textLight: '#6B7280',
+  textLightDark: '#A0A0A0',
   border: '#E5E7EB',
+};
+
+const DARK_COLORS = {
+  primary: '#3B82F6',
+  secondary: '#FF3B30',
+  background: '#1A1A2E',
+  surface: '#16213E',
+  text: '#E8E8E8',
+  textLight: '#A0A0A0',
 };
 
 const faqs = [
@@ -49,6 +64,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { profile, setProfile } = useContext(ProfileContext);
   const { logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
 
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -133,6 +149,16 @@ export default function SettingsScreen() {
     headerScale.value = withSpring(1);
     headerOpacity.value = withTiming(1, { duration: 400 });
   }, []);
+
+  // Sync darkMode state with ThemeContext
+  useEffect(() => {
+    setDarkMode(isDark);
+  }, [isDark]);
+
+  const toggleDarkMode = async (value: boolean) => {
+    setDarkMode(value);
+    toggleTheme(value); // Use ThemeContext's toggleTheme
+  };
 
   // Animation for modal open/close
   useEffect(() => {
@@ -288,19 +314,34 @@ const handleLogout = () => {
     },
   ]);
 };
+
+  // Dynamic colors based on dark mode
+  const containerStyle = {
+    backgroundColor: darkMode ? COLORS.backgroundDark : COLORS.background,
+  };
+  const surfaceStyle = {
+    backgroundColor: darkMode ? COLORS.surfaceDark : COLORS.surface,
+  };
+  const textStyle = {
+    color: darkMode ? COLORS.textDark : COLORS.text,
+  };
+  const textLightStyle = {
+    color: darkMode ? COLORS.textLightDark : COLORS.textLight,
+  };
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+    <View style={[styles.container, containerStyle]}>
+      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={darkMode ? COLORS.backgroundDark : COLORS.background} />
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* PROFILE HEADER */}
-        <Animated.View style={[styles.profileCard, headerStyle]}>
+        <Animated.View style={[styles.profileCard, headerStyle, surfaceStyle]}>
           <View style={styles.profileHeader}>
             <TouchableOpacity onPress={handleUploadPhoto}>
               {profile.image ? (
                 <Image source={{ uri: profile.image }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatar}>
+                <View style={[styles.avatar, { backgroundColor: darkMode ? COLORS.primary : COLORS.primary }]}>
                   <Ionicons name="person" size={40} color="#fff" />
                 </View>
               )}
@@ -310,81 +351,81 @@ const handleLogout = () => {
             </TouchableOpacity>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
-              <Text style={styles.name}>{profile.name}</Text>
-              <Text style={styles.email}>{profile.email}</Text>
-              <Text style={styles.reg}>Reg No: {profile.registration}</Text>
+              <Text style={[styles.name, textStyle]}>{profile.name}</Text>
+              <Text style={[styles.email, textLightStyle]}>{profile.email}</Text>
+              <Text style={[styles.reg, { color: darkMode ? COLORS.primary : COLORS.primary }]}>Reg No: {profile.registration}</Text>
             </View>
 
             <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-              <Ionicons name="pencil" size={20} color={COLORS.primary} />
+              <Ionicons name="pencil" size={20} color={darkMode ? COLORS.primary : COLORS.primary} />
             </TouchableOpacity>
           </View>
         </Animated.View>
 
         {/* PREFERENCES */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Preferences</Text>
           {renderToggle('Push Notifications', notifications, setNotifications)}
           {renderToggle('Email Notifications', emailNotifications, setEmailNotifications)}
-          {renderToggle('Dark Mode', darkMode, setDarkMode)}
-          
+          {renderToggle('Dark Mode', darkMode, toggleDarkMode)}
+
           {/* Language Selection */}
-          <TouchableOpacity style={styles.actionItem} onPress={() => Alert.alert('Language', 'English (Default)')}>
-            <Text style={styles.actionText}>Language</Text>
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => Alert.alert('Language', 'English (Default)')}>
+            <Text style={[styles.actionText, textStyle]}>Language</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: COLORS.textLight, marginRight: 8 }}>English</Text>
-              <Ionicons name="chevron-forward" size={18} />
+              <Text style={[{ marginRight: 8 }, textLightStyle]}>English</Text>
+              <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
             </View>
           </TouchableOpacity>
-          
+
           {/* Theme Selection */}
-          <TouchableOpacity style={styles.actionItem} onPress={() => Alert.alert('Theme', 'Default Theme')}>
-            <Text style={styles.actionText}>Theme</Text>
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => Alert.alert('Theme', 'Default Theme')}>
+            <Text style={[styles.actionText, textStyle]}>Theme</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: COLORS.textLight, marginRight: 8 }}>Default</Text>
-              <Ionicons name="chevron-forward" size={18} />
+              <Text style={[{ marginRight: 8 }, textLightStyle]}>Default</Text>
+              <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
             </View>
           </TouchableOpacity>
         </View>
 
         {/* PRIVACY */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Security</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Privacy & Security</Text>
           {renderToggle('Private Profile', privateProfile, setPrivateProfile)}
           {renderToggle('Two-Factor Authentication', twoFactor, setTwoFactor)}
 
-          <TouchableOpacity style={styles.actionItem} onPress={() => setPasswordModal(true)}>
-            <Text style={styles.actionText}>Change Password</Text>
-            <Ionicons name="chevron-forward" size={18} />
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => setPasswordModal(true)}>
+            <Text style={[styles.actionText, textStyle]}>Change Password</Text>
+            <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
           </TouchableOpacity>
-          
+
           {/* Account Security */}
-          <TouchableOpacity style={styles.actionItem} onPress={() => Alert.alert('Account Security', 'Your account is secure')}>
-            <Text style={styles.actionText}>Account Security</Text>
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => Alert.alert('Account Security', 'Your account is secure')}>
+            <Text style={[styles.actionText, textStyle]}>Account Security</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="shield-checkmark-outline" size={18} color="#4CAF50" style={{ marginRight: 8 }} />
-              <Ionicons name="chevron-forward" size={18} />
+              <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
             </View>
           </TouchableOpacity>
-          
+
           {/* Data Usage */}
-          <TouchableOpacity style={styles.actionItem} onPress={() => Alert.alert('Data Usage', 'Manage your data usage settings')}>
-            <Text style={styles.actionText}>Data Usage</Text>
-            <Ionicons name="chevron-forward" size={18} />
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => Alert.alert('Data Usage', 'Manage your data usage settings')}>
+            <Text style={[styles.actionText, textStyle]}>Data Usage</Text>
+            <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
           </TouchableOpacity>
         </View>
 
         {/* HELP */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Help & Support</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Help & Support</Text>
 
           {faqs.map((f, i) => (
-            <View key={i} style={styles.faqItem}>
+            <View key={i} style={[styles.faqItem, surfaceStyle]}>
               <TouchableOpacity onPress={() => toggleFaq(i)} style={styles.faqHeader}>
-                <Text style={styles.faqQ}>{f.q}</Text>
-                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} />
+                <Text style={[styles.faqQ, textStyle]}>{f.q}</Text>
+                <Ionicons name={openFaqIndex === i ? 'chevron-up' : 'chevron-down'} size={20} color={darkMode ? COLORS.textDark : COLORS.text} />
               </TouchableOpacity>
-              {openFaqIndex === i && <Text style={styles.faqA}>{f.a}</Text>}
+              {openFaqIndex === i && <Text style={[styles.faqA, textLightStyle]}>{f.a}</Text>}
             </View>
           ))}
 
@@ -406,16 +447,16 @@ const handleLogout = () => {
 
         {/* ABOUT */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>About</Text>
 
-          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('TermsConditions')}>
-            <Text style={styles.actionText}>Terms & Conditions</Text>
-            <Ionicons name="chevron-forward" size={18} />
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => navigation.navigate('TermsConditions')}>
+            <Text style={[styles.actionText, textStyle]}>Terms & Conditions</Text>
+            <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('PrivacyPolicy')}>
-            <Text style={styles.actionText}>Privacy Policy</Text>
-            <Ionicons name="chevron-forward" size={18} />
+          <TouchableOpacity style={[styles.actionItem, surfaceStyle]} onPress={() => navigation.navigate('PrivacyPolicy')}>
+            <Text style={[styles.actionText, textStyle]}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={18} color={darkMode ? COLORS.textDark : COLORS.text} />
           </TouchableOpacity>
         </View>
 
@@ -429,48 +470,48 @@ const handleLogout = () => {
       {/* PASSWORD MODAL */}
       <Modal visible={passwordModal} transparent animationType="slide">
         <View style={styles.modalContainer}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Change Password</Text>
-            
+          <View style={[styles.modalBox, surfaceStyle]}>
+            <Text style={[styles.modalTitle, textStyle]}>Change Password</Text>
+
             <View style={styles.inputContainer}>
-              <TextInput 
-                placeholder="Current Password" 
+              <TextInput
+                placeholder="Current Password"
                 secureTextEntry={!showCurrent}
-                style={styles.input} 
-                value={currentPassword} 
+                style={[styles.input, { backgroundColor: darkMode ? COLORS.surfaceDark : '#f2f2f2', color: darkMode ? COLORS.textDark : COLORS.text }]}
+                value={currentPassword}
                 onChangeText={setCurrentPassword}
                 placeholderTextColor={COLORS.textLight}
               />
               <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)} style={styles.eyeIcon}>
-                <Ionicons name={showCurrent ? "eye-off" : "eye"} size={20} color={COLORS.textLight} />
+                <Ionicons name={showCurrent ? "eye-off" : "eye"} size={20} color={darkMode ? COLORS.textLightDark : COLORS.textLight} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.inputContainer}>
-              <TextInput 
-                placeholder="New Password" 
+              <TextInput
+                placeholder="New Password"
                 secureTextEntry={!showNew}
-                style={styles.input} 
-                value={newPassword} 
+                style={[styles.input, { backgroundColor: darkMode ? COLORS.surfaceDark : '#f2f2f2', color: darkMode ? COLORS.textDark : COLORS.text }]}
+                value={newPassword}
                 onChangeText={setNewPassword}
                 placeholderTextColor={COLORS.textLight}
               />
               <TouchableOpacity onPress={() => setShowNew(!showNew)} style={styles.eyeIcon}>
-                <Ionicons name={showNew ? "eye-off" : "eye"} size={20} color={COLORS.textLight} />
+                <Ionicons name={showNew ? "eye-off" : "eye"} size={20} color={darkMode ? COLORS.textLightDark : COLORS.textLight} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.inputContainer}>
-              <TextInput 
-                placeholder="Confirm New Password" 
+              <TextInput
+                placeholder="Confirm New Password"
                 secureTextEntry={!showConfirm}
-                style={styles.input} 
-                value={confirmPassword} 
+                style={[styles.input, { backgroundColor: darkMode ? COLORS.surfaceDark : '#f2f2f2', color: darkMode ? COLORS.textDark : COLORS.text }]}
+                value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholderTextColor={COLORS.textLight}
               />
               <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={styles.eyeIcon}>
-                <Ionicons name={showConfirm ? "eye-off" : "eye"} size={20} color={COLORS.textLight} />
+                <Ionicons name={showConfirm ? "eye-off" : "eye"} size={20} color={darkMode ? COLORS.textLightDark : COLORS.textLight} />
               </TouchableOpacity>
             </View>
 
@@ -489,20 +530,20 @@ const handleLogout = () => {
       {/* SUPPORT MODAL - Simple Working Version */}
       <Modal visible={supportModal} transparent animationType="fade">
         <TouchableOpacity style={styles.modalContainer} activeOpacity={1} onPress={() => setSupportModal(false)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={[styles.modalBox, {maxHeight: '80%'}]}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={[styles.modalBox, {maxHeight: '80%'}, surfaceStyle]}>
             <View style={styles.modalHeader}>
-              <Ionicons name="chatbox-ellipses-outline" size={24} color={COLORS.primary} />
-              <Text style={styles.modalTitle}>Send Support Message</Text>
+              <Ionicons name="chatbox-ellipses-outline" size={24} color={darkMode ? COLORS.primary : COLORS.primary} />
+              <Text style={[styles.modalTitle, textStyle]}>Send Support Message</Text>
               <TouchableOpacity onPress={() => setSupportModal(false)}>
-                <Ionicons name="close-outline" size={24} color={COLORS.textLight} />
+                <Ionicons name="close-outline" size={24} color={darkMode ? COLORS.textLightDark : COLORS.textLight} />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Subject *</Text>
+              <Text style={[styles.label, textStyle]}>Subject *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: darkMode ? COLORS.textDark : COLORS.text }]}
                   placeholder="Enter subject"
                   value={supportSubject}
                   onChangeText={setSupportSubject}
@@ -512,10 +553,10 @@ const handleLogout = () => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Message *</Text>
+              <Text style={[styles.label, textStyle]}>Message *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[styles.input, styles.textArea, { color: darkMode ? COLORS.textDark : COLORS.text }]}
                   placeholder="Describe your issue..."
                   multiline
                   numberOfLines={4}
@@ -525,14 +566,14 @@ const handleLogout = () => {
                   textAlignVertical="top"
                 />
               </View>
-              <Text style={styles.counterText}>{supportMessage.length}/500</Text>
+              <Text style={[styles.counterText, textLightStyle]}>{supportMessage.length}/500</Text>
             </View>
 
             <TouchableOpacity style={styles.modalButton} onPress={handleSendSupport} disabled={loadingSupport}>
               <Ionicons name="send" size={20} color="#fff" />
               <Text style={styles.modalButtonText}>{loadingSupport ? 'Sending...' : 'Send Message'}</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.cancelButton} onPress={() => setSupportModal(false)}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -544,9 +585,14 @@ const handleLogout = () => {
 
   function renderToggle(label: string, value: boolean, setter: any) {
     return (
-      <View style={styles.toggleItem}>
-        <Text style={styles.toggleText}>{label}</Text>
-        <Switch value={value} onValueChange={setter} />
+      <View style={[styles.toggleItem, surfaceStyle]}>
+        <Text style={[styles.toggleText, textStyle]}>{label}</Text>
+        <Switch
+          value={value}
+          onValueChange={setter}
+          trackColor={{ true: darkMode ? COLORS.primary : '#1E5F9E', false: '#ccc' }}
+          thumbColor={Platform.OS === 'android' ? (darkMode ? COLORS.surfaceDark : '#fff') : undefined}
+        />
       </View>
     );
   }
@@ -563,14 +609,14 @@ const styles = StyleSheet.create({
   reg: { fontSize: 12, color: COLORS.primary },
   section: { paddingHorizontal: 20, marginBottom: 25 },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
-  toggleItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 10 },
-  toggleText: { fontWeight: '600' },
-  actionItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 10 },
-  actionText: { fontWeight: '600' },
-  faqItem: { backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 8 },
+  toggleItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.surface, padding: 14, borderRadius: 12, marginBottom: 10 },
+  toggleText: { fontWeight: '600', color: COLORS.text },
+  actionItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.surface, padding: 14, borderRadius: 12, marginBottom: 10 },
+  actionText: { fontWeight: '600', color: COLORS.text },
+  faqItem: { backgroundColor: COLORS.surface, padding: 12, borderRadius: 12, marginBottom: 8 },
   faqHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  faqQ: { fontWeight: '600' },
-  faqA: { marginTop: 8, color: '#555' },
+  faqQ: { fontWeight: '600', color: COLORS.text },
+  faqA: { marginTop: 8, color: COLORS.textLight },
   contactBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, padding: 12, borderRadius: 10 },
   contactText: { color: '#fff', marginLeft: 6 },
   logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.secondary, padding: 15, borderRadius: 15, marginHorizontal: 20, marginBottom: 30 },

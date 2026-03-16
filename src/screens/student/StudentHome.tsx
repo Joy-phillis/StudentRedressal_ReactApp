@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   View,
   Text,
@@ -33,6 +34,7 @@ const { width } = Dimensions.get('window');
 export default function StudentHome({ navigation }: any) {
   const { profile, setProfile } = useContext(ProfileContext);
   const { logout } = useAuth();
+  const { isDark, colors } = useTheme();
 
   // 🔹 NEW STATES (for Supabase data)
   const [studentName, setStudentName] = useState<string>('Loading...');
@@ -284,22 +286,22 @@ const handleLogout = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 180 }}>
-        <Animated.View style={[styles.container, headerStyle]}>
+        <Animated.View style={[styles.container, headerStyle, { backgroundColor: colors.background }]}>
           {/* Top Header */}
           <View style={styles.headerContainer}>
             <View>
-              <Text style={styles.welcome}>Welcome Back 👋</Text>
-              <Text style={styles.subtitle}>{studentName}</Text>
+              <Text style={[styles.welcome, { color: colors.text }]}>Welcome Back 👋</Text>
+              <Text style={[styles.subtitle, { color: colors.primary }]}>{studentName}</Text>
             </View>
             <View style={styles.topIcons}>
               <TouchableOpacity
                 style={[styles.iconButton, { marginRight: 8 }]}
                 onPress={() => navigation.navigate('Notifications')}
               >
-                <Ionicons name="notifications-outline" size={30} color="#0F3057" />
+                <Ionicons name="notifications-outline" size={30} color={colors.text} />
                 {unreadNotificationCount > 0 && (
                   <View style={styles.notificationBadge}>
                     <Text style={styles.notificationBadgeText}>{unreadNotificationCount}</Text>
@@ -307,7 +309,7 @@ const handleLogout = () => {
                 )}
               </TouchableOpacity>
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 8 }}>
-                <Ionicons name="log-out-outline" size={26} color="#0F3057" />
+                <Ionicons name="log-out-outline" size={26} color={colors.text} />
               </TouchableOpacity>
               <View style={styles.profileContainer}>
                 <TouchableOpacity
@@ -349,7 +351,7 @@ const handleLogout = () => {
           </Animated.View>
 
           {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <Animated.View style={[actionStyle]}>
             {[
               { icon: 'add-circle-outline', label: 'Submit New Complaint', screen: 'Complaints', color: '#1E5F9E' },
@@ -373,7 +375,7 @@ const handleLogout = () => {
           </Animated.View>
 
           {/* Recent Complaints */}
-          <Text style={styles.sectionTitle}>Recent Complaints</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Complaints</Text>
           <FlatList
             data={complaints}
             keyExtractor={item => item.id}
@@ -384,17 +386,17 @@ const handleLogout = () => {
           />
 
           {/* Announcements */}
-          <Text style={styles.sectionTitle}>Announcements</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Announcements</Text>
           <Animated.View style={[announcementsStyle]}>
             {announcements.length === 0 ? (
-              <Text style={styles.noAnnouncementsText}>No announcements at this time</Text>
+              <Text style={[styles.noAnnouncementsText, { color: colors.textLight }]}>No announcements at this time</Text>
             ) : (
               <View style={styles.announcementsContainer}>
                 {announcements.map((announcement, idx) => (
-                  <View key={announcement.id || idx} style={styles.announcementCard}>
-                    <Text style={styles.announcementTitle}>{announcement.title}</Text>
-                    <Text style={styles.announcementText}>{announcement.content}</Text>
-                    <Text style={styles.announcementDate}>
+                  <View key={announcement.id || idx} style={[styles.announcementCard, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.announcementTitle, { color: colors.text }]}>{announcement.title}</Text>
+                    <Text style={[styles.announcementText, { color: colors.text }]}>{announcement.content}</Text>
+                    <Text style={[styles.announcementDate, { color: colors.textLight }]}>
                       {new Date(announcement.created_at).toLocaleDateString()}
                     </Text>
                   </View>
@@ -404,23 +406,23 @@ const handleLogout = () => {
           </Animated.View>
 
           {/* Performance Insights */}
-          <Text style={styles.sectionTitle}>Performance Insights</Text>
-          <View style={styles.performanceCard}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Insights</Text>
+          <View style={[styles.performanceCard, { backgroundColor: colors.surface }]}>
             <View style={styles.performanceHeader}>
-              <Ionicons name="analytics-outline" size={20} color="#1E5F9E" />
-              <Text style={styles.performanceTitle}>Your Complaint Performance</Text>
+              <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+              <Text style={[styles.performanceTitle, { color: colors.text }]}>Your Complaint Performance</Text>
             </View>
-            <Text style={styles.performanceText}>
+            <Text style={[styles.performanceText, { color: colors.textLight }]}>
               {performanceInsights.message || 'No data available yet.'}
             </Text>
             <View style={styles.performanceMetrics}>
               <View style={styles.performanceMetricItem}>
-                <Text style={styles.performanceMetricValue}>{performanceInsights.resolutionRate}%</Text>
-                <Text style={styles.performanceMetricLabel}>Resolved</Text>
+                <Text style={[styles.performanceMetricValue, { color: colors.primary }]}>{performanceInsights.resolutionRate}%</Text>
+                <Text style={[styles.performanceMetricLabel, { color: colors.textLight }]}>Resolved</Text>
               </View>
               <View style={styles.performanceMetricItem}>
-                <Text style={styles.performanceMetricValue}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
-                <Text style={styles.performanceMetricLabel}>Avg Days</Text>
+                <Text style={[styles.performanceMetricValue, { color: colors.primary }]}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
+                <Text style={[styles.performanceMetricLabel, { color: colors.textLight }]}>Avg Days</Text>
               </View>
               <View style={styles.performanceMetricItem}>
                 <Ionicons 
