@@ -284,9 +284,9 @@ const handleLogout = () => {
               
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Subject *</Text>
-                <Animated.View style={inputFocusStyle}>
-                  <TextInput 
-                    style={[styles.input, styles.inputWrapper]}
+                <View style={[styles.inputWrapper, { minHeight: 50 }]}>
+                  <TextInput
+                    style={[styles.input, { minHeight: 50, paddingVertical: 16 }]}
                     placeholder="Enter subject"
                     value={supportSubject}
                     onChangeText={setSupportSubject}
@@ -294,14 +294,14 @@ const handleLogout = () => {
                     onBlur={handleInputBlur}
                     placeholderTextColor="#6B7280"
                   />
-                </Animated.View>
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Message *</Text>
-                <Animated.View style={inputFocusStyle}>
-                  <TextInput 
-                    style={[styles.textArea, styles.inputWrapper]}
+                <View style={[styles.inputWrapper, { minHeight: 120 }]}>
+                  <TextInput
+                    style={[styles.input, styles.textArea, { paddingVertical: 16 }]}
                     placeholder="Describe your issue..."
                     multiline
                     numberOfLines={4}
@@ -312,7 +312,7 @@ const handleLogout = () => {
                     placeholderTextColor="#6B7280"
                     textAlignVertical="top"
                   />
-                </Animated.View>
+                </View>
                 <Text style={styles.counterText}>{supportMessage.length}/500</Text>
               </View>
 

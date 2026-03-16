@@ -500,27 +500,31 @@ const handleLogout = () => {
             
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Subject *</Text>
-              <TextInput 
-                style={[styles.input, styles.inputWrapper]}
-                placeholder="Enter subject"
-                value={supportSubject}
-                onChangeText={setSupportSubject}
-                placeholderTextColor={COLORS.textLight}
-              />
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter subject"
+                  value={supportSubject}
+                  onChangeText={setSupportSubject}
+                  placeholderTextColor={COLORS.textLight}
+                />
+              </View>
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Message *</Text>
-              <TextInput 
-                style={[styles.textArea, styles.inputWrapper]}
-                placeholder="Describe your issue..."
-                multiline
-                numberOfLines={4}
-                value={supportMessage}
-                onChangeText={setSupportMessage}
-                placeholderTextColor={COLORS.textLight}
-                textAlignVertical="top"
-              />
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Describe your issue..."
+                  multiline
+                  numberOfLines={4}
+                  value={supportMessage}
+                  onChangeText={setSupportMessage}
+                  placeholderTextColor={COLORS.textLight}
+                  textAlignVertical="top"
+                />
+              </View>
               <Text style={styles.counterText}>{supportMessage.length}/500</Text>
             </View>
 
@@ -637,6 +641,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
+    minHeight: 50,
   },
   textAreaWrapper: {
     flexDirection: 'row',
@@ -650,14 +655,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  input: { 
+  input: {
     flex: 1,
     borderWidth: 0,
     borderRadius: 0,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     fontSize: 16,
     color: COLORS.text,
+    minHeight: 50,
   },
   eyeIcon: {
     padding: 14,

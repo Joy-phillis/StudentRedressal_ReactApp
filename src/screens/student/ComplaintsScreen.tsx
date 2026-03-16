@@ -84,29 +84,41 @@ export default function ComplaintsScreen() {
   fetchComplaints(); // ✅ added
 }, []);
 const fetchComplaints = async () => {
-  const { data, error } = await supabase
-    .from('complaints')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.log('User not authenticated');
+      return;
+    }
 
-  if (error) {
-    console.log('Fetch error:', error.message);
-    return;
-  }
+    const { data, error } = await supabase
+      .from('complaints')
+      .select('*')
+      .eq('user_id', user.id) // Only fetch current user's complaints
+      .order('created_at', { ascending: false });
 
-  if (data) {
-    const formatted = data.map((item) => ({
-      id: item.id,
-      reg: item.registration_number,
-      title: item.title,
-      name: item.full_name,
-      course: item.course,
-      status: item.status,
-      date: item.created_at.slice(0, 10),
-      category: item.category,
-    }));
+    if (error) {
+      console.log('Fetch error:', error.message);
+      return;
+    }
 
-    setHistory(formatted);
+    if (data) {
+      const formatted = data.map((item) => ({
+        id: item.id,
+        reg: item.registration_number,
+        title: item.title,
+        name: item.full_name,
+        course: item.course,
+        status: item.status,
+        date: item.created_at.slice(0, 10),
+        category: item.category,
+      }));
+
+      setHistory(formatted);
+    }
+  } catch (error) {
+    console.log('Error fetching complaints:', error);
   }
 };
 
@@ -147,64 +159,81 @@ const handleSubmit = async () => {
   setSubmitting(true);
   submitScale.value = withSpring(0.95, { damping: 12, stiffness: 100 });
 
-  const { data, error } = await supabase
-    .from('complaints')
-    .insert([
-      {
-        registration_number: regNo,
-        full_name: fullName,
-        gender,
-        year,
-        course,
-        title,
-        category,
-        description,
-        urgency,
-      },
-    ])
-    .select();
+  try {
+    // First, get the current user ID
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      Alert.alert('Error', 'User not authenticated. Please login again.');
+      setSubmitting(false);
+      submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+      return;
+    }
 
-  submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
-  setSubmitting(false);
+    const { data, error } = await supabase
+      .from('complaints')
+      .insert([
+        {
+          registration_number: regNo,
+          full_name: fullName,
+          gender,
+          year,
+          course,
+          title,
+          category,
+          description,
+          urgency,
+          user_id: user.id, // Link to authenticated user
+        },
+      ])
+      .select();
 
-  if (error) {
-    Alert.alert('Error', error.message);
-    return;
+    submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+    setSubmitting(false);
+
+    if (error) {
+      Alert.alert('Error', error.message);
+      return;
+    }
+
+    Alert.alert(
+      'Success ✓',
+      'Your complaint has been submitted successfully!',
+      [{ text: 'OK' }]
+    );
+
+    if (data && data.length > 0) {
+      const newComplaint = data[0];
+
+      const formattedComplaint = {
+        id: newComplaint.id,
+        reg: newComplaint.registration_number,
+        title: newComplaint.title,
+        name: newComplaint.full_name,
+        course: newComplaint.course,
+        status: newComplaint.status,
+        date: newComplaint.created_at.slice(0, 10),
+        category: newComplaint.category,
+      };
+
+      setHistory((prev) => [formattedComplaint, ...prev]);
+    }
+
+    // Reset form
+    setRegNo('');
+    setFullName('');
+    setGender('Male');
+    setYear('1');
+    setCourse('');
+    setTitle('');
+    setCategory('Library');
+    setDescription('');
+    setUrgency('Normal');
+  } catch (err: any) {
+    setSubmitting(false);
+    submitScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+    Alert.alert('Error', err.message || 'Failed to submit complaint');
   }
-
-  Alert.alert(
-    'Success ✓',
-    'Your complaint has been submitted successfully!',
-    [{ text: 'OK' }]
-  );
-
-  if (data && data.length > 0) {
-    const newComplaint = data[0];
-
-    const formattedComplaint = {
-      id: newComplaint.id,
-      reg: newComplaint.registration_number,
-      title: newComplaint.title,
-      name: newComplaint.full_name,
-      course: newComplaint.course,
-      status: newComplaint.status,
-      date: newComplaint.created_at.slice(0, 10),
-      category: newComplaint.category,
-    };
-
-    setHistory((prev) => [formattedComplaint, ...prev]);
-  }
-
-  // Reset form (unchanged)
-  setRegNo('');
-  setFullName('');
-  setGender('Male');
-  setYear('1');
-  setCourse('');
-  setTitle('');
-  setCategory('Library');
-  setDescription('');
-  setUrgency('Normal');
 };
 
   const getStatusColor = (status: string) => {
