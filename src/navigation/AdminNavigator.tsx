@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AdminBottomTabs from './AdminBottomTabs';
 import AdminProfile from '../screens/admin/AdminProfile';
+import Reports from '../screens/admin/Reports';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +24,12 @@ export default function AdminNavigator() {
       <Stack.Screen
         name="AdminProfile"
         component={AdminProfile}
+      />
+
+      {/* Reports Screen */}
+      <Stack.Screen
+        name="Reports"
+        component={Reports}
       />
     </Stack.Navigator>
   );

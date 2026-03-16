@@ -5,6 +5,7 @@ import ProfileScreen from '../screens/student/ProfileScreen';
 import EditProfileScreen from '../screens/student/EditProfileScreen';
 import TermsConditions from '../screens/student/TermsScreen';
 import PrivacyPolicy from '../screens/student/PrivacyPolicyScreen';
+import StudentReports from '../screens/student/StudentReports';
 import LoginScreen from '../screens/auth/LoginScreen';
 
 const Stack = createNativeStackNavigator();
@@ -25,23 +26,27 @@ export default function StudentNavigator() {
 
       {/* MODAL GROUP */}
       <Stack.Group screenOptions={{ presentation: 'modal', headerShown: false }}>
-        <Stack.Screen 
-          name="Profile" 
+        <Stack.Screen
+          name="Profile"
           component={ProfileScreen}
         />
-        <Stack.Screen 
-          name="EditProfile" 
+        <Stack.Screen
+          name="EditProfile"
           component={EditProfileScreen}
         />
 
         {/* ✅ ADDED SCREENS */}
-        <Stack.Screen 
-          name="TermsConditions" 
+        <Stack.Screen
+          name="TermsConditions"
           component={TermsConditions}
         />
-        <Stack.Screen 
-          name="PrivacyPolicy" 
+        <Stack.Screen
+          name="PrivacyPolicy"
           component={PrivacyPolicy}
+        />
+        <Stack.Screen
+          name="Reports"
+          component={StudentReports}
         />
       </Stack.Group>
     </Stack.Navigator>

@@ -277,20 +277,26 @@ export default function StaffHome({ navigation }: any) {
   };
 
   // --- Logout ---
-const { logout } = useAuth();
+  const { logout } = useAuth();
 
-const handleLogout = async () => {
-  Alert.alert('Logout', 'Are you sure?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Logout',
-      style: 'destructive',
-      onPress: async () => {
-        await logout();
+  const handleLogout = async () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await supabase.auth.signOut();
+            logout();
+          } catch (error) {
+            console.error('Logout error:', error);
+            Alert.alert('Error', 'Failed to logout. Please try again.');
+          }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
   // --- Mark one complaint as resolved ---
   const markResolvedAction = async () => {
     const pendingComplaint = assignedList.find(c => c.status === 'Pending');

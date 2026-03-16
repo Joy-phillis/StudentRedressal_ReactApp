@@ -12,50 +12,33 @@ interface Complaint {
   urgency: string;
   category: string;
   created_at: string;
-  user_id: string;
-  assigned_to: string | null;
-  full_name: string;
-  student_name?: string;
-  staff_name?: string;
-}
-
-interface UserProfile {
-  id: string;
-  full_name: string;
-  role: string;
-  email: string;
+  assigned_at: string | null;
 }
 
 interface ReportMetrics {
-  totalComplaints: number;
+  total: number;
   pending: number;
   resolved: number;
   inProgress: number;
   overdue: number;
   resolutionRate: number;
   avgResolutionDays: number;
-  totalStudents: number;
-  totalStaff: number;
-  totalAdmins: number;
   byCategory: { [key: string]: number };
   byUrgency: { [key: string]: number };
-  byStatus: { [key: string]: number };
   monthlyData: { month: string; count: number }[];
-  departmentData: { department: string; complaints: number; resolved: number }[];
 }
 
-export default function AdminReports({ navigation }: any) {
+export default function StudentReports({ navigation, route }: any) {
   const [range, setRange] = useState<'month' | 'quarter' | 'year'>('month');
   const [loading, setLoading] = useState(true);
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [adminName, setAdminName] = useState('Admin');
+  const [myComplaints, setMyComplaints] = useState<Complaint[]>([]);
+  const [studentName, setStudentName] = useState('Student');
 
   useEffect(() => {
-    fetchAdminData();
+    fetchStudentData();
   }, [range]);
 
-  const fetchAdminData = async () => {
+  const fetchStudentData = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -64,7 +47,7 @@ export default function AdminReports({ navigation }: any) {
         return;
       }
 
-      // Fetch admin name
+      // Fetch student name
       const { data: profileData } = await supabase
         .from('profiles')
         .select('full_name')
@@ -72,30 +55,22 @@ export default function AdminReports({ navigation }: any) {
         .single();
       
       if (profileData) {
-        setAdminName(profileData.full_name || 'Admin');
+        setStudentName(profileData.full_name || 'Student');
       }
 
-      // Fetch all users
-      const { data: usersData } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, email');
-      
-      if (usersData) {
-        setUsers(usersData);
-      }
-
-      // Fetch all complaints with date filtering
+      // Fetch student's complaints with date filtering
       const dateFilter = getDateFilter(range);
-      const { data: complaintsData, error } = await supabase
+      const { data, error } = await supabase
         .from('complaints')
         .select('*')
+        .eq('user_id', user.id)
         .gte('created_at', dateFilter)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setComplaints(complaintsData || []);
+      setMyComplaints(data || []);
     } catch (error: any) {
-      console.error('Error fetching admin data:', error.message);
+      console.error('Error fetching student data:', error.message);
       Alert.alert('Error', 'Could not fetch report data');
     } finally {
       setLoading(false);
@@ -125,36 +100,27 @@ export default function AdminReports({ navigation }: any) {
   };
 
   const metrics: ReportMetrics = useMemo(() => {
-    const totalComplaints = complaints.length;
-    const pending = complaints.filter(c => c.status === 'Pending').length;
-    const resolved = complaints.filter(c => c.status === 'Resolved').length;
-    const inProgress = complaints.filter(c => c.status === 'In-Progress').length;
-    const overdue = complaints.filter(c => c.status === 'Overdue').length;
+    const total = myComplaints.length;
+    const pending = myComplaints.filter(c => c.status === 'Pending').length;
+    const resolved = myComplaints.filter(c => c.status === 'Resolved').length;
+    const inProgress = myComplaints.filter(c => c.status === 'In-Progress').length;
+    const overdue = myComplaints.filter(c => c.status === 'Overdue').length;
     
-    const resolutionRate = totalComplaints === 0 ? 0 : Math.round((resolved / totalComplaints) * 100);
+    const resolutionRate = total === 0 ? 0 : Math.round((resolved / total) * 100);
+    
+    // Calculate average resolution time (mock - would need resolved_at column for accurate)
     const avgResolutionDays = resolved > 0 ? 3.5 : 0;
-
-    // Count users by role
-    const totalStudents = users.filter(u => u.role === 'student').length;
-    const totalStaff = users.filter(u => u.role === 'staff').length;
-    const totalAdmins = users.filter(u => u.role === 'admin').length;
 
     // Group by category
     const byCategory: { [key: string]: number } = {};
-    complaints.forEach(c => {
+    myComplaints.forEach(c => {
       byCategory[c.category] = (byCategory[c.category] || 0) + 1;
     });
 
     // Group by urgency
     const byUrgency: { [key: string]: number } = {};
-    complaints.forEach(c => {
+    myComplaints.forEach(c => {
       byUrgency[c.urgency || 'Normal'] = (byUrgency[c.urgency || 'Normal'] || 0) + 1;
-    });
-
-    // Group by status
-    const byStatus: { [key: string]: number } = {};
-    complaints.forEach(c => {
-      byStatus[c.status] = (byStatus[c.status] || 0) + 1;
     });
 
     // Monthly trend data
@@ -165,7 +131,7 @@ export default function AdminReports({ navigation }: any) {
     for (let i = 5; i >= 0; i--) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthKey = monthNames[monthDate.getMonth()];
-      const count = complaints.filter(c => {
+      const count = myComplaints.filter(c => {
         const complaintDate = new Date(c.created_at);
         return complaintDate.getMonth() === monthDate.getMonth() && 
                complaintDate.getFullYear() === monthDate.getFullYear();
@@ -173,40 +139,19 @@ export default function AdminReports({ navigation }: any) {
       monthlyData.push({ month: monthKey, count });
     }
 
-    // Department/Role data
-    const studentComplaints = complaints.filter(c => {
-      const user = users.find(u => u.id === c.user_id);
-      return user?.role === 'student';
-    }).length;
-    
-    const staffComplaints = complaints.filter(c => {
-      const user = users.find(u => u.id === c.user_id);
-      return user?.role === 'staff';
-    }).length;
-
-    const departmentData = [
-      { department: 'Students', complaints: studentComplaints, resolved: complaints.filter(c => c.status === 'Resolved' && users.find(u => u.id === c.user_id)?.role === 'student').length },
-      { department: 'Staff', complaints: staffComplaints, resolved: complaints.filter(c => c.status === 'Resolved' && users.find(u => u.id === c.user_id)?.role === 'staff').length },
-    ];
-
     return {
-      totalComplaints,
+      total,
       pending,
       resolved,
       inProgress,
       overdue,
       resolutionRate,
       avgResolutionDays,
-      totalStudents,
-      totalStaff,
-      totalAdmins,
       byCategory,
       byUrgency,
-      byStatus,
       monthlyData,
-      departmentData,
     };
-  }, [complaints, users]);
+  }, [myComplaints]);
 
   const generatePDF = async () => {
     try {
@@ -221,11 +166,10 @@ export default function AdminReports({ navigation }: any) {
               h2 { color: #0F3057; margin-top: 30px; }
               .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
               .date { color: #666; font-size: 14px; }
-              .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
-              .metric-card { background: #F4F7FB; padding: 15px; border-radius: 8px; border-left: 4px solid #1E5F9E; text-align: center; }
-              .metric-value { font-size: 28px; font-weight: bold; color: #1E5F9E; }
+              .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+              .metric-card { background: #F4F7FB; padding: 15px; border-radius: 8px; border-left: 4px solid #1E5F9E; }
+              .metric-value { font-size: 24px; font-weight: bold; color: #1E5F9E; }
               .metric-label { font-size: 12px; color: #666; margin-top: 5px; }
-              .user-metric { font-size: 20px; font-weight: bold; color: #0F3057; }
               table { width: 100%; border-collapse: collapse; margin: 20px 0; }
               th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
               th { background: #1E5F9E; color: white; }
@@ -235,89 +179,45 @@ export default function AdminReports({ navigation }: any) {
               .status-overdue { color: #FF3B30; font-weight: bold; }
               .chart-bar { display: inline-block; background: #1E5F9E; margin-right: 8px; border-radius: 4px; }
               .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; text-align: center; }
-              .summary-box { background: #1E5F9E; color: white; padding: 20px; border-radius: 10px; margin: 20px 0; }
-              .summary-box h3 { margin: 0 0 10px 0; color: white; }
-              .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-              .summary-item { text-align: center; }
-              .summary-item .value { font-size: 24px; font-weight: bold; }
-              .summary-item .label { font-size: 12px; opacity: 0.9; }
             </style>
           </head>
           <body>
             <div class="header">
-              <h1>Admin Analytics Report</h1>
+              <h1>Student Complaint Report</h1>
               <div class="date">
                 <p>Generated: ${new Date().toLocaleDateString()}</p>
-                <p>Admin: ${adminName}</p>
+                <p>Student: ${studentName}</p>
                 <p>Period: ${range.charAt(0).toUpperCase() + range.slice(1)}</p>
               </div>
             </div>
 
-            <div class="summary-box">
-              <h3>System Overview</h3>
-              <div class="summary-grid">
-                <div class="summary-item">
-                  <div class="value">${metrics.totalStudents}</div>
-                  <div class="label">Students</div>
-                </div>
-                <div class="summary-item">
-                  <div class="value">${metrics.totalStaff}</div>
-                  <div class="label">Staff</div>
-                </div>
-                <div class="summary-item">
-                  <div class="value">${metrics.totalAdmins}</div>
-                  <div class="label">Admins</div>
-                </div>
-                <div class="summary-item">
-                  <div class="value">${metrics.totalComplaints}</div>
-                  <div class="label">Total Complaints</div>
-                </div>
-                <div class="summary-item">
-                  <div class="value">${metrics.resolutionRate}%</div>
-                  <div class="label">Resolution Rate</div>
-                </div>
-                <div class="summary-item">
-                  <div class="value">${metrics.overdue}</div>
-                  <div class="label">Overdue</div>
-                </div>
-              </div>
-            </div>
-
-            <h2>Complaint Metrics</h2>
+            <h2>My Complaint Summary</h2>
             <div class="metric-grid">
               <div class="metric-card">
-                <div class="metric-value">${metrics.totalComplaints}</div>
+                <div class="metric-value">${metrics.total}</div>
                 <div class="metric-label">Total Complaints</div>
               </div>
-              <div class="metric-card" style="border-left-color: #FF9800;">
+              <div class="metric-card">
                 <div class="metric-value">${metrics.pending}</div>
                 <div class="metric-label">Pending</div>
               </div>
-              <div class="metric-card" style="border-left-color: #4CAF50;">
+              <div class="metric-card">
                 <div class="metric-value">${metrics.resolved}</div>
                 <div class="metric-label">Resolved</div>
               </div>
-              <div class="metric-card" style="border-left-color: #2196F3;">
+              <div class="metric-card">
                 <div class="metric-value">${metrics.inProgress}</div>
                 <div class="metric-label">In Progress</div>
               </div>
-              <div class="metric-card" style="border-left-color: #FF3B30;">
-                <div class="metric-value">${metrics.overdue}</div>
-                <div class="metric-label">Overdue</div>
+              <div class="metric-card">
+                <div class="metric-value">${metrics.resolutionRate}%</div>
+                <div class="metric-label">Resolution Rate</div>
               </div>
-              <div class="metric-card" style="border-left-color: #9C27B0;">
-                <div class="metric-value">${metrics.avgResolutionDays.toFixed(1)}</div>
-                <div class="metric-label">Avg Days</div>
+              <div class="metric-card">
+                <div class="metric-value">${metrics.avgResolutionDays.toFixed(1)} days</div>
+                <div class="metric-label">Avg Resolution Time</div>
               </div>
             </div>
-
-            <h2>User Demographics</h2>
-            <table>
-              <tr><th>Role</th><th>Count</th></tr>
-              <tr><td>Students</td><td class="user-metric">${metrics.totalStudents}</td></tr>
-              <tr><td>Staff</td><td class="user-metric">${metrics.totalStaff}</td></tr>
-              <tr><td>Admins</td><td class="user-metric">${metrics.totalAdmins}</td></tr>
-            </table>
 
             <h2>By Category</h2>
             <table>
@@ -335,34 +235,21 @@ export default function AdminReports({ navigation }: any) {
               ).join('')}
             </table>
 
-            <h2>By Department</h2>
-            <table>
-              <tr><th>Department</th><th>Complaints</th><th>Resolved</th><th>Rate</th></tr>
-              ${metrics.departmentData.map(d => 
-                `<tr>
-                  <td>${d.department}</td>
-                  <td>${d.complaints}</td>
-                  <td>${d.resolved}</td>
-                  <td>${d.complaints > 0 ? Math.round((d.resolved / d.complaints) * 100) : 0}%</td>
-                </tr>`
-              ).join('')}
-            </table>
-
             <h2>Monthly Trend</h2>
             <div style="margin: 20px 0;">
               ${metrics.monthlyData.map(m => 
                 `<div style="margin-bottom: 8px;">
                   <span style="display:inline-block;width:40px;">${m.month}</span>
-                  <span class="chart-bar" style="width:${Math.max(m.count * 15, 4)}px;height:20px;"></span>
+                  <span class="chart-bar" style="width:${Math.max(m.count * 20, 4)}px;height:20px;"></span>
                   <span style="margin-left:8px;">${m.count}</span>
                 </div>`
               ).join('')}
             </div>
 
-            <h2>Recent Complaints</h2>
+            <h2>My Complaints</h2>
             <table>
               <tr><th>Title</th><th>Status</th><th>Category</th><th>Date</th></tr>
-              ${complaints.slice(0, 15).map(c => `
+              ${myComplaints.slice(0, 10).map(c => `
                 <tr>
                   <td>${c.title}</td>
                   <td class="status-${c.status.toLowerCase().replace('-', '')}">${c.status}</td>
@@ -373,8 +260,8 @@ export default function AdminReports({ navigation }: any) {
             </table>
 
             <div class="footer">
-              <p>Student Redressal System - Admin Analytics Dashboard</p>
-              <p>Generated on ${new Date().toLocaleString()} | Confidential</p>
+              <p>Student Redressal System - Personal Report</p>
+              <p>Generated on ${new Date().toLocaleString()}</p>
             </div>
           </body>
         </html>
@@ -397,7 +284,7 @@ export default function AdminReports({ navigation }: any) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1E5F9E" />
-        <Text style={styles.loadingText}>Loading analytics...</Text>
+        <Text style={styles.loadingText}>Loading your report...</Text>
       </View>
     );
   }
@@ -408,7 +295,7 @@ export default function AdminReports({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back-outline" size={24} color="#0F3057" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Analytics & Reports</Text>
+        <Text style={styles.headerTitle}>My Reports</Text>
         <TouchableOpacity onPress={generatePDF} style={styles.downloadBtn}>
           <Ionicons name="download-outline" size={24} color="#1E5F9E" />
         </TouchableOpacity>
@@ -427,44 +314,12 @@ export default function AdminReports({ navigation }: any) {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* System Overview Summary */}
-        <View style={[styles.summaryCard, { backgroundColor: '#1E5F9E' }]}>
-          <Text style={styles.summaryTitle}>System Overview</Text>
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{metrics.totalStudents}</Text>
-              <Text style={styles.summaryLabel}>Students</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{metrics.totalStaff}</Text>
-              <Text style={styles.summaryLabel}>Staff</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{metrics.totalAdmins}</Text>
-              <Text style={styles.summaryLabel}>Admins</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{metrics.totalComplaints}</Text>
-              <Text style={styles.summaryLabel}>Complaints</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{metrics.resolutionRate}%</Text>
-              <Text style={styles.summaryLabel}>Resolution Rate</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryValue, { color: '#FF6B6B' }]}>{metrics.overdue}</Text>
-              <Text style={styles.summaryLabel}>Overdue</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Complaint Metrics */}
+        {/* Summary Cards */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Complaint Metrics</Text>
           <View style={styles.metricsGrid}>
             <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>{metrics.totalComplaints}</Text>
-              <Text style={styles.metricLabel}>Total</Text>
+              <Text style={styles.metricValue}>{metrics.total}</Text>
+              <Text style={styles.metricLabel}>Total Complaints</Text>
             </View>
             <View style={[styles.metricBox, { borderLeftColor: '#FF9800' }]}>
               <Text style={styles.metricValue}>{metrics.pending}</Text>
@@ -478,31 +333,22 @@ export default function AdminReports({ navigation }: any) {
               <Text style={styles.metricValue}>{metrics.inProgress}</Text>
               <Text style={styles.metricLabel}>In Progress</Text>
             </View>
-            <View style={[styles.metricBox, { borderLeftColor: '#FF3B30' }]}>
-              <Text style={styles.metricValue}>{metrics.overdue}</Text>
-              <Text style={styles.metricLabel}>Overdue</Text>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Resolution Rate</Text>
+              <Text style={styles.statValue}>{metrics.resolutionRate}%</Text>
             </View>
-            <View style={[styles.metricBox, { borderLeftColor: '#9C27B0' }]}>
-              <Text style={styles.metricValue}>{metrics.avgResolutionDays.toFixed(1)}</Text>
-              <Text style={styles.metricLabel}>Avg Days</Text>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Avg Response Time</Text>
+              <Text style={styles.statValue}>{metrics.avgResolutionDays.toFixed(1)} Days</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Overdue</Text>
+              <Text style={[styles.statValue, { color: '#FF3B30' }]}>{metrics.overdue}</Text>
             </View>
           </View>
-        </View>
-
-        {/* By Department */}
-        <View style={[styles.card, { marginTop: 16 }]}>
-          <Text style={styles.cardTitle}>By Department</Text>
-          {metrics.departmentData.map((dept, index) => (
-            <View key={index} style={styles.deptRow}>
-              <View style={styles.deptInfo}>
-                <Text style={styles.deptName}>{dept.department}</Text>
-                <Text style={styles.deptStats}>{dept.resolved} / {dept.complaints} resolved</Text>
-              </View>
-              <View style={styles.deptMetrics}>
-                <Text style={styles.deptRate}>{dept.complaints > 0 ? Math.round((dept.resolved / dept.complaints) * 100) : 0}%</Text>
-              </View>
-            </View>
-          ))}
         </View>
 
         {/* By Category */}
@@ -512,7 +358,7 @@ export default function AdminReports({ navigation }: any) {
             <View key={index} style={styles.barRow}>
               <Text style={styles.barLabel}>{category}</Text>
               <View style={styles.barContainer}>
-                <View style={[styles.barFill, { width: `${(count / metrics.totalComplaints) * 100}%` }]} />
+                <View style={[styles.barFill, { width: `${(count / metrics.total) * 100}%` }]} />
               </View>
               <Text style={styles.barCount}>{count}</Text>
             </View>
@@ -526,7 +372,7 @@ export default function AdminReports({ navigation }: any) {
             <View key={index} style={styles.barRow}>
               <Text style={styles.barLabel}>{urgency}</Text>
               <View style={styles.barContainer}>
-                <View style={[styles.barFill, { width: `${(count / metrics.totalComplaints) * 100}%`, backgroundColor: getUrgencyColor(urgency) }]} />
+                <View style={[styles.barFill, { width: `${(count / metrics.total) * 100}%`, backgroundColor: getUrgencyColor(urgency) }]} />
               </View>
               <Text style={styles.barCount}>{count}</Text>
             </View>
@@ -547,13 +393,13 @@ export default function AdminReports({ navigation }: any) {
           </View>
         </View>
 
-        {/* Recent Complaints */}
+        {/* My Complaints List */}
         <View style={[styles.card, { marginTop: 16 }]}>
-          <Text style={styles.cardTitle}>Recent Complaints</Text>
-          {complaints.length === 0 ? (
+          <Text style={styles.cardTitle}>My Complaints</Text>
+          {myComplaints.length === 0 ? (
             <Text style={styles.emptyText}>No complaints in this period</Text>
           ) : (
-            complaints.slice(0, 10).map((complaint, index) => (
+            myComplaints.slice(0, 10).map((complaint, index) => (
               <View key={index} style={styles.complaintRow}>
                 <View style={styles.complaintInfo}>
                   <Text style={styles.complaintTitle} numberOfLines={1}>{complaint.title}</Text>
@@ -602,43 +448,26 @@ const styles = StyleSheet.create({
   rangeActive: { backgroundColor: '#1E5F9E' },
   rangeText: { color: '#0F3057' },
   rangeTextActive: { color: '#fff' },
-  
-  // Summary Card
-  summaryCard: { backgroundColor: '#1E5F9E', padding: 18, borderRadius: 15, elevation: 3, marginBottom: 16 },
-  summaryTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 14 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  summaryItem: { width: '32%', alignItems: 'center', paddingVertical: 10 },
-  summaryValue: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  summaryLabel: { fontSize: 11, color: '#E3F2FD', marginTop: 4, textAlign: 'center' },
-  
   card: { backgroundColor: '#fff', padding: 18, borderRadius: 15, elevation: 2 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#0F3057', marginBottom: 12 },
-  
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   metricBox: { width: '48%', backgroundColor: '#F8FAFC', padding: 14, borderRadius: 10, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#1E5F9E' },
   metricValue: { fontSize: 24, fontWeight: '700', color: '#1E5F9E' },
   metricLabel: { fontSize: 12, color: '#666', marginTop: 4 },
-  
-  // Department
-  deptRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  deptInfo: { flex: 1 },
-  deptName: { fontSize: 14, fontWeight: '600', color: '#0F3057' },
-  deptStats: { fontSize: 12, color: '#666', marginTop: 2 },
-  deptMetrics: { alignItems: 'flex-end' },
-  deptRate: { fontSize: 18, fontWeight: '700', color: '#4CAF50' },
-  
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  statItem: { alignItems: 'center' },
+  statLabel: { fontSize: 11, color: '#666' },
+  statValue: { fontSize: 16, fontWeight: '700', color: '#1E5F9E', marginTop: 4 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: '#0F3057', marginBottom: 12 },
   barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   barLabel: { width: 100, fontSize: 13, color: '#555' },
   barContainer: { flex: 1, height: 12, backgroundColor: '#E5E7EB', borderRadius: 6, overflow: 'hidden', marginHorizontal: 10 },
   barFill: { height: '100%', backgroundColor: '#1E5F9E', borderRadius: 6 },
   barCount: { width: 30, fontSize: 13, fontWeight: '600', color: '#0F3057', textAlign: 'right' },
-  
   trendContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 120, paddingTop: 10 },
   trendItem: { alignItems: 'center', flex: 1 },
   trendBar: { width: 24, backgroundColor: '#1E5F9E', borderRadius: 4, marginBottom: 6 },
   trendMonth: { fontSize: 11, color: '#666' },
   trendCount: { fontSize: 12, fontWeight: '600', color: '#1E5F9E', marginTop: 4 },
-  
   complaintRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   complaintInfo: { flex: 1 },
   complaintTitle: { fontSize: 14, fontWeight: '600', color: '#0F3057' },

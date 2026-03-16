@@ -326,7 +326,13 @@ const handleLogout = () => {
               <TouchableOpacity
                 key={idx}
                 style={[styles.actionCard, { backgroundColor: action.color }]}
-                onPress={() => navigation.navigate(action.screen)}
+                onPress={() => {
+                  if (action.screen === 'Reports') {
+                    navigation.navigate('Reports' as never);
+                  } else {
+                    navigation.navigate(action.screen as never);
+                  }
+                }}
               >
                 <Ionicons name={action.icon as any} size={28} color="#fff" />
                 <Text style={styles.actionText}>{action.label}</Text>

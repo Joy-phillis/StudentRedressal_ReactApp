@@ -99,18 +99,24 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   const { logout } = useAuth();
-const handleLogout = () => {
-  Alert.alert('Logout', 'Are you sure?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Logout',
-      style: 'destructive',
-      onPress: async () => {
-        await logout();
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await supabase.auth.signOut();
+            logout();
+          } catch (error) {
+            console.error('Logout error:', error);
+            Alert.alert('Error', 'Failed to logout. Please try again.');
+          }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
   const toggleFaq = (i: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
