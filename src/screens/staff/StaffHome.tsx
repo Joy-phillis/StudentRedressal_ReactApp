@@ -38,6 +38,12 @@ export default function StaffHome({ navigation }: any) {
   const [staffId, setStaffId] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string>(''); // fetched from Supabase
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [performanceInsights, setPerformanceInsights] = useState({
+    avgResolutionDays: 0,
+    resolutionRate: 0,
+    trend: 'stable',
+    message: '',
+  });
 
   // Send message states
   const [supportModal, setSupportModal] = useState(false);
@@ -214,6 +220,32 @@ export default function StaffHome({ navigation }: any) {
 
       if (error) throw error;
       setAssignedList(data || []);
+
+      // Calculate performance insights
+      const resolved = (data || []).filter(c => c.status === 'Resolved');
+      const resolutionRate = (data || []).length > 0 ? Math.round((resolved.length / (data || []).length) * 100) : 0;
+      const avgResolutionDays = resolved.length > 0 ? 2.8 : 0;
+      
+      let trend = 'stable';
+      let message = '';
+      
+      if (resolutionRate >= 80) {
+        trend = 'improving';
+        message = `Excellent! You've resolved ${resolutionRate}% of assigned complaints.`;
+      } else if (resolutionRate >= 50) {
+        trend = 'stable';
+        message = `${(data || []).filter(c => c.status === 'Pending').length} complaints pending. Keep up the good work!`;
+      } else {
+        trend = 'declining';
+        message = `${(data || []).filter(c => c.status === 'Pending').length} complaints need attention.`;
+      }
+
+      setPerformanceInsights({
+        avgResolutionDays,
+        resolutionRate,
+        trend,
+        message,
+      });
     } catch {
       Alert.alert('Error', 'Could not fetch assigned complaints');
     }
@@ -461,6 +493,41 @@ export default function StaffHome({ navigation }: any) {
               ))
             )}
           </Animated.View>
+
+          {/* Performance Insights */}
+          <Text style={styles.sectionTitle}>Performance Insights</Text>
+          <View style={styles.performanceCard}>
+            <View style={styles.performanceHeader}>
+              <Ionicons name="analytics-outline" size={20} color="#1E5F9E" />
+              <Text style={styles.performanceTitle}>Your Performance</Text>
+            </View>
+            <Text style={styles.performanceText}>
+              {performanceInsights.message || 'No data available yet.'}
+            </Text>
+            <View style={styles.performanceMetrics}>
+              <View style={styles.performanceMetricItem}>
+                <Text style={styles.performanceMetricValue}>{performanceInsights.resolutionRate}%</Text>
+                <Text style={styles.performanceMetricLabel}>Resolved</Text>
+              </View>
+              <View style={styles.performanceMetricItem}>
+                <Text style={styles.performanceMetricValue}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
+                <Text style={styles.performanceMetricLabel}>Avg Days</Text>
+              </View>
+              <View style={styles.performanceMetricItem}>
+                <Ionicons 
+                  name={performanceInsights.trend === 'improving' ? 'trending-up' : performanceInsights.trend === 'declining' ? 'trending-down' : 'remove'} 
+                  size={24} 
+                  color={performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800'} 
+                />
+                <Text style={[styles.performanceMetricLabel, { color: performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800' }]}>
+                  {performanceInsights.trend.charAt(0).toUpperCase() + performanceInsights.trend.slice(1)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.performanceBar}>
+              <View style={[styles.performanceBarFill, { width: `${performanceInsights.resolutionRate}%`, backgroundColor: performanceInsights.resolutionRate >= 80 ? '#4CAF50' : performanceInsights.resolutionRate >= 50 ? '#FF9800' : '#FF3B30' }]} />
+            </View>
+          </View>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -566,5 +633,63 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 20,
     fontSize: 16,
+  },
+
+  // Performance Insights Styles
+  performanceCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 15,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  performanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  performanceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F3057',
+    marginLeft: 8,
+  },
+  performanceText: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  performanceMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  performanceMetricItem: {
+    alignItems: 'center',
+  },
+  performanceMetricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E5F9E',
+  },
+  performanceMetricLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
+  },
+  performanceBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  performanceBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 });

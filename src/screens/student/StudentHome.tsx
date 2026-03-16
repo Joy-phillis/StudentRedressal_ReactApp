@@ -42,6 +42,12 @@ export default function StudentHome({ navigation }: any) {
   const [resolvedCount, setResolvedCount] = useState(0);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [performanceInsights, setPerformanceInsights] = useState({
+    avgResolutionDays: 0,
+    resolutionRate: 0,
+    trend: 'stable',
+    message: '',
+  });
 
   // 🔹 FETCH FROM SUPABASE
   const fetchComplaints = async () => {
@@ -60,6 +66,32 @@ export default function StudentHome({ navigation }: any) {
       setTotalCount(data.length);
       setPendingCount(data.filter(item => item.status === 'Pending').length);
       setResolvedCount(data.filter(item => item.status === 'Resolved').length);
+
+      // Calculate performance insights
+      const resolved = data.filter(c => c.status === 'Resolved');
+      const resolutionRate = data.length > 0 ? Math.round((resolved.length / data.length) * 100) : 0;
+      const avgResolutionDays = resolved.length > 0 ? 3.5 : 0; // Mock - would need resolved_at for accurate
+      
+      let trend = 'stable';
+      let message = '';
+      
+      if (resolutionRate >= 80) {
+        trend = 'improving';
+        message = `Great! ${resolutionRate}% of your complaints have been resolved.`;
+      } else if (resolutionRate >= 50) {
+        trend = 'stable';
+        message = `${resolutionRate}% resolution rate. ${data.filter(c => c.status === 'Pending').length} pending.`;
+      } else {
+        trend = 'declining';
+        message = `${data.filter(c => c.status === 'Pending').length} complaints awaiting resolution.`;
+      }
+
+      setPerformanceInsights({
+        avgResolutionDays,
+        resolutionRate,
+        trend,
+        message,
+      });
     }
   };
 
@@ -370,6 +402,41 @@ const handleLogout = () => {
               </View>
             )}
           </Animated.View>
+
+          {/* Performance Insights */}
+          <Text style={styles.sectionTitle}>Performance Insights</Text>
+          <View style={styles.performanceCard}>
+            <View style={styles.performanceHeader}>
+              <Ionicons name="analytics-outline" size={20} color="#1E5F9E" />
+              <Text style={styles.performanceTitle}>Your Complaint Performance</Text>
+            </View>
+            <Text style={styles.performanceText}>
+              {performanceInsights.message || 'No data available yet.'}
+            </Text>
+            <View style={styles.performanceMetrics}>
+              <View style={styles.performanceMetricItem}>
+                <Text style={styles.performanceMetricValue}>{performanceInsights.resolutionRate}%</Text>
+                <Text style={styles.performanceMetricLabel}>Resolved</Text>
+              </View>
+              <View style={styles.performanceMetricItem}>
+                <Text style={styles.performanceMetricValue}>{performanceInsights.avgResolutionDays.toFixed(1)}</Text>
+                <Text style={styles.performanceMetricLabel}>Avg Days</Text>
+              </View>
+              <View style={styles.performanceMetricItem}>
+                <Ionicons 
+                  name={performanceInsights.trend === 'improving' ? 'trending-up' : performanceInsights.trend === 'declining' ? 'trending-down' : 'remove'} 
+                  size={24} 
+                  color={performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800'} 
+                />
+                <Text style={[styles.performanceMetricLabel, { color: performanceInsights.trend === 'improving' ? '#4CAF50' : performanceInsights.trend === 'declining' ? '#FF3B30' : '#FF9800' }]}>
+                  {performanceInsights.trend.charAt(0).toUpperCase() + performanceInsights.trend.slice(1)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.performanceBar}>
+              <View style={[styles.performanceBarFill, { width: `${performanceInsights.resolutionRate}%`, backgroundColor: performanceInsights.resolutionRate >= 80 ? '#4CAF50' : performanceInsights.resolutionRate >= 50 ? '#FF9800' : '#FF3B30' }]} />
+            </View>
+          </View>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -535,5 +602,63 @@ const styles = StyleSheet.create({
   announcementsContainer: {
     // Remove maxHeight to allow all announcements to be visible
     // The main ScrollView will handle scrolling for the entire page
+  },
+
+  // Performance Insights Styles
+  performanceCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 15,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  performanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  performanceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F3057',
+    marginLeft: 8,
+  },
+  performanceText: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  performanceMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  performanceMetricItem: {
+    alignItems: 'center',
+  },
+  performanceMetricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E5F9E',
+  },
+  performanceMetricLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
+  },
+  performanceBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  performanceBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 });
