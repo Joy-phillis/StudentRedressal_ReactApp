@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing } from 'react-native-reanimated';
 import { supabase } from '../../services/supabase';
 import { useFocusEffect } from '@react-navigation/native';
+import { uploadProfileImage } from '../../services/storageService';
 
 const { width } = Dimensions.get('window');
 
@@ -81,12 +82,15 @@ export default function AdminDashboard({ navigation }: any) {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, avatar_url')
       .eq('id', user.id)
       .single();
 
     if (!error && data) {
       setAdminName(data.full_name);
+      if (data.avatar_url) {
+        setProfileImage(data.avatar_url);
+      }
     }
   };
 
@@ -302,11 +306,48 @@ export default function AdminDashboard({ navigation }: any) {
         quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets[0]) {
-        setProfileImage(result.assets[0].uri as string);
+        const imageUri = result.assets[0].uri;
+        console.log('Selected image URI:', imageUri);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          Alert.alert('Error', 'User not authenticated');
+          return;
+        }
+
+        console.log('User ID:', user.id);
+
+        // Upload to Supabase Storage
+        const { url, error } = await uploadProfileImage(user.id, imageUri);
+        
+        if (error) {
+          console.error('Upload failed:', error);
+          Alert.alert('Error', 'Upload failed: ' + error);
+          return;
+        }
+
+        console.log('Upload successful, URL:', url);
+
+        // Update profile in database
+        const { data: updateData, error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: url })
+          .eq('id', user.id)
+          .select();
+
+        if (updateError) {
+          console.error('Database update failed:', updateError);
+          Alert.alert('Error', 'Failed to save: ' + updateError.message);
+          return;
+        }
+
+        console.log('Database update successful:', updateData);
+        setProfileImage(url);
         Alert.alert('Success', 'Profile image updated!');
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not open photo library');
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Could not upload image');
     }
   };
 

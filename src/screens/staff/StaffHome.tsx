@@ -30,6 +30,7 @@ import { supabase } from '../../services/supabase';
 import { ProfileContext } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { uploadProfileImage } from '../../services/storageService';
 
 const { width } = Dimensions.get('window');
 
@@ -108,14 +109,19 @@ export default function StaffHome({ navigation }: any) {
       setStaffId(user.id);
 
       try {
-        // Fetch full_name from your users table
+        // Fetch full_name and avatar_url from profiles table
         const { data: profileData, error: profileError } = await supabase
-          .from('profiles') // replace with your table name
-          .select('full_name')
+          .from('profiles')
+          .select('full_name, avatar_url')
           .eq('id', user.id)
           .single();
 
-        if (!profileError && profileData?.full_name) setFullName(profileData.full_name);
+        if (!profileError && profileData) {
+          setFullName(profileData.full_name);
+          if (profileData.avatar_url) {
+            setProfileImage(profileData.avatar_url);
+          }
+        }
 
         // Fetch assigned complaints and announcements
         fetchAssignedComplaints(user.id);
@@ -292,7 +298,10 @@ export default function StaffHome({ navigation }: any) {
   const handleUploadPhoto = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') return Alert.alert('Permission Denied', 'Please allow access to photo library');
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please allow access to photo library');
+        return;
+      }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -302,11 +311,48 @@ export default function StaffHome({ navigation }: any) {
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setProfileImage(result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        console.log('Selected image URI:', imageUri);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          Alert.alert('Error', 'User not authenticated');
+          return;
+        }
+
+        console.log('User ID:', user.id);
+
+        // Upload to Supabase Storage
+        const { url, error } = await uploadProfileImage(user.id, imageUri);
+        
+        if (error) {
+          console.error('Upload failed:', error);
+          Alert.alert('Error', 'Upload failed: ' + error);
+          return;
+        }
+
+        console.log('Upload successful, URL:', url);
+
+        // Update profile in database
+        const { data: updateData, error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: url })
+          .eq('id', user.id)
+          .select();
+
+        if (updateError) {
+          console.error('Database update failed:', updateError);
+          Alert.alert('Error', 'Failed to save: ' + updateError.message);
+          return;
+        }
+
+        console.log('Database update successful:', updateData);
+        setProfileImage(url);
         Alert.alert('Success', 'Profile image updated!');
       }
-    } catch {
-      Alert.alert('Error', 'Could not open photo library');
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Could not upload image');
     }
   };
 

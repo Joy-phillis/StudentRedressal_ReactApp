@@ -26,6 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
+import { uploadProfileImage } from '../../services/storageService';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -204,8 +205,46 @@ export default function SettingsScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setProfile({ image: result.assets[0].uri });
-      Alert.alert('Success', 'Profile updated successfully.');
+      const imageUri = result.assets[0].uri;
+      console.log('Selected image URI:', imageUri);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      console.log('User ID:', user.id);
+
+      // Upload to Supabase Storage
+      const { url, error } = await uploadProfileImage(user.id, imageUri);
+      
+      if (error) {
+        console.error('Upload failed:', error);
+        Alert.alert('Error', 'Upload failed: ' + error);
+        return;
+      }
+
+      console.log('Upload successful, URL:', url);
+
+      // Update profile in database
+      const { data: updateData, error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: url })
+        .eq('id', user.id)
+        .select();
+
+      if (updateError) {
+        console.error('Database update failed:', updateError);
+        Alert.alert('Error', 'Failed to save: ' + updateError.message);
+        return;
+      }
+
+      console.log('Database update successful:', updateData);
+
+      // Update local state
+      setProfile({ ...profile, image: url });
+      Alert.alert('Success', 'Profile photo updated successfully!');
     }
   };
 
