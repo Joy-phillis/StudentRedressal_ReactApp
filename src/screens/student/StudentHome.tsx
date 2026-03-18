@@ -191,27 +191,54 @@ export default function StudentHome({ navigation }: any) {
   const fetchStudentProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('StudentHome: Fetching profile for user:', user?.id);
+      
       if (!user) return;
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('full_name, email, avatar_url, registration_number')
+        .select('full_name, email')
         .eq('id', user.id)
         .single();
 
       if (profileError) {
-        console.log('Profile fetch error:', profileError.message);
+        console.error('Profile fetch error:', profileError.message);
       } else if (profileData) {
+        console.log('StudentHome: Profile data fetched:', profileData);
+        
         setStudentName(profileData.full_name);
         setProfile({
           name: profileData.full_name,
           email: profileData.email,
-          image: profileData.avatar_url || profile.image,
-          registration: profileData.registration_number || profile.registration || ''
         });
       }
+      
+      // Fetch profile image from profile_images table
+      const { data: imageData } = await supabase
+        .from('profile_images')
+        .select('image_url')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (imageData?.image_url) {
+        console.log('StudentHome: Profile image URL:', imageData.image_url);
+        setProfile(prev => ({ ...prev, image: imageData.image_url }));
+      }
+      
+      // Fetch registration number from complaints table
+      const { data: complaintData } = await supabase
+        .from('complaints')
+        .select('registration_number')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (complaintData) {
+        setProfile(prev => ({ ...prev, registration: complaintData.registration_number }));
+      }
     } catch (error) {
-      console.log('Error fetching student profile:', error);
+      console.error('Error fetching student profile:', error);
     }
   };
 

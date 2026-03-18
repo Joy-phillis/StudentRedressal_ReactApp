@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 
 /**
- * Upload profile image to Supabase Storage
- * @param userId - The user's ID (used as folder name)
+ * Upload profile image to Supabase Storage and save URL to database
+ * @param userId - The user's ID
  * @param imageUri - The local URI of the image to upload
  * @returns Object with public URL or error message
  */
@@ -15,7 +15,6 @@ export const uploadProfileImage = async (
     console.log('Image URI:', imageUri);
 
     // For React Native, we need to handle the URI differently
-    // Check if it's a local file URI
     const isLocalFile = imageUri.startsWith('file://') || imageUri.startsWith('/');
     
     let blob: Blob;
@@ -70,6 +69,25 @@ export const uploadProfileImage = async (
     } = supabase.storage.from('profile-images').getPublicUrl(fileName);
 
     console.log('Public URL:', publicUrl);
+
+    // Save URL to profile_images table using INSERT ... ON CONFLICT
+    const { data: upsertData, error: dbError } = await supabase
+      .from('profile_images')
+      .upsert({ 
+        user_id: userId, 
+        image_url: publicUrl,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
+      });
+
+    if (dbError) {
+      console.error('Database save error:', dbError);
+      console.error('Error details:', JSON.stringify(dbError));
+      throw dbError;
+    }
+
+    console.log('Profile image URL saved to database:', upsertData);
 
     return { url: publicUrl, error: null };
   } catch (error: any) {

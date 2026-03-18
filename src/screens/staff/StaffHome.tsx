@@ -109,18 +109,28 @@ export default function StaffHome({ navigation }: any) {
       setStaffId(user.id);
 
       try {
-        // Fetch full_name and avatar_url from profiles table
+        // Fetch full_name from profiles table
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('full_name')
           .eq('id', user.id)
           .single();
 
         if (!profileError && profileData) {
+          console.log('StaffHome: Profile data:', profileData);
           setFullName(profileData.full_name);
-          if (profileData.avatar_url) {
-            setProfileImage(profileData.avatar_url);
-          }
+        }
+
+        // Fetch profile image from profile_images table
+        const { data: imageData } = await supabase
+          .from('profile_images')
+          .select('image_url')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (imageData?.image_url) {
+          console.log('StaffHome: Profile image URL:', imageData.image_url);
+          setProfileImage(imageData.image_url);
         }
 
         // Fetch assigned complaints and announcements

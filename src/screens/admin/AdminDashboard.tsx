@@ -77,20 +77,33 @@ export default function AdminDashboard({ navigation }: any) {
   // 🔹 NEW: FETCH ADMIN NAME
   const fetchAdminProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('AdminDashboard: Fetching profile for user:', user?.id);
 
     if (!user) return;
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name, avatar_url')
+      .select('full_name')
       .eq('id', user.id)
       .single();
 
     if (!error && data) {
+      console.log('AdminDashboard: Profile data:', data);
       setAdminName(data.full_name);
-      if (data.avatar_url) {
-        setProfileImage(data.avatar_url);
-      }
+    } else {
+      console.error('AdminDashboard: Profile fetch error:', error?.message);
+    }
+
+    // Fetch profile image from profile_images table
+    const { data: imageData } = await supabase
+      .from('profile_images')
+      .select('image_url')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (imageData?.image_url) {
+      console.log('AdminDashboard: Profile image URL:', imageData.image_url);
+      setProfileImage(imageData.image_url);
     }
   };
 

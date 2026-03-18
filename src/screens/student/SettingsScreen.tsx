@@ -104,24 +104,40 @@ export default function SettingsScreen() {
   const fetchProfileData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('Fetching profile for user:', user?.id);
+      
       if (user) {
         // Fetch profile from profiles table
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('*')
+          .select('full_name, email')
           .eq('id', user.id)
           .single();
 
         if (profileError) {
-          console.log('Profile fetch error:', profileError.message);
+          console.error('Profile fetch error:', profileError.message);
         } else if (profileData) {
+          console.log('Profile data fetched:', profileData);
+          
           setSupabaseProfile(profileData);
           setProfile({
             name: profileData.full_name,
             email: profileData.email,
-            image: profileData.avatar_url || profile.image,
-            registration: profileData.registration_number || profile.registration
           });
+        }
+
+        // Fetch profile image from profile_images table
+        const { data: imageData, error: imageError } = await supabase
+          .from('profile_images')
+          .select('image_url')
+          .eq('user_id', user.id)
+          .single();
+
+        if (imageError && imageError.code !== 'PGRST116') {
+          console.log('Profile image fetch error:', imageError.message);
+        } else if (imageData?.image_url) {
+          console.log('Profile image URL:', imageData.image_url);
+          setProfile(prev => ({ ...prev, image: imageData.image_url }));
         }
 
         // Fetch registration number from complaints table
@@ -136,12 +152,13 @@ export default function SettingsScreen() {
         if (complaintError) {
           console.log('Complaint fetch error:', complaintError.message);
         } else if (complaintData) {
+          console.log('Registration number:', complaintData.registration_number);
           setRegistrationNumber(complaintData.registration_number);
-          setProfile({ registration: complaintData.registration_number });
+          setProfile(prev => ({ ...prev, registration: complaintData.registration_number }));
         }
       }
     } catch (error) {
-      console.log('Error fetching profile data:', error);
+      console.error('Error fetching profile data:', error);
     }
   };
 
