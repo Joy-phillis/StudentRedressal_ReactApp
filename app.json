@@ -22,11 +22,21 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": ["INTERNET"]  
+      "permissions": [
+        "INTERNET"
+      ],
+      "package": "com.savvy111.studentredressalapp"
     },
     "web": {
       "favicon": "./assets/favi.png"
     },
-    "assetBundlePatterns": ["**/*"]
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "639f10f1-aed2-461e-986d-0c9aa053657a"
+      }
+    }
   }
 }
