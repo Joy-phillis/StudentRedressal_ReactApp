@@ -1,0 +1,271 @@
+.profile-container {
+  min-height: 100vh;
+  background: #F4F7FB;
+  padding: 0 25px 40px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0 20px;
+}
+
+.back-btn {
+  color: #0F3057;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 16px;
+  background: #e0e0e0;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: #d0d0d0;
+}
+
+.profile-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0F3057;
+  margin: 0;
+}
+
+.header-spacer {
+  width: 80px;
+}
+
+.profile-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.profile-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Profile Photo Section */
+.profile-photo-section {
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 32px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.profile-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #1E5F9E;
+}
+
+.profile-avatar-placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #1E5F9E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  border: 4px solid #1E5F9E;
+}
+
+.camera-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #1E5F9E;
+  border: 3px solid #fff;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.camera-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+.camera-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.photo-help {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #888;
+}
+
+/* Profile Form */
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0F3057;
+}
+
+.form-input {
+  padding: 14px 16px;
+  border: 2px solid #E0E0E0;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: #1E5F9E;
+}
+
+.role-display,
+.status-display {
+  padding: 12px 0;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  background: #e3f2fd;
+  color: #1E5F9E;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.status-badge {
+  padding: 6px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: #e8f5e9;
+  color: #4CAF50;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.save-btn {
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  background: #1E5F9E;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.save-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.logout-btn {
+  padding: 14px;
+  border: 2px solid #FF3B30;
+  background: transparent;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #FF3B30;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: #FF3B30;
+  color: #fff;
+}
+
+/* Account Info */
+.account-info {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.account-info h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0F3057;
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #0F3057;
+}
+
+@media (max-width: 600px) {
+  .profile-card {
+    padding: 24px 20px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+}

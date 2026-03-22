@@ -1,0 +1,418 @@
+.complaints-container {
+  min-height: 100vh;
+  background: #F4F7FB;
+  padding: 0 25px 40px;
+}
+
+.complaints-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0 20px;
+}
+
+.back-btn {
+  color: #0F3057;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 16px;
+  background: #e0e0e0;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: #d0d0d0;
+}
+
+.complaints-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0F3057;
+  margin: 0;
+}
+
+.header-spacer {
+  width: 80px;
+}
+
+.filters-section {
+  margin-bottom: 20px;
+}
+
+.search-box {
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #E0E0E0;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #1E5F9E;
+}
+
+.filter-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 2px solid #E0E0E0;
+  background: #fff;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: #1E5F9E;
+  color: #1E5F9E;
+}
+
+.filter-btn.active {
+  background: #1E5F9E;
+  border-color: #1E5F9E;
+  color: #fff;
+}
+
+.sort-btn {
+  padding: 8px 16px;
+  border: 2px solid #E0E0E0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sort-btn:hover {
+  border-color: #1E5F9E;
+  color: #1E5F9E;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #888;
+}
+
+.complaints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.complaint-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  border-left: 5px solid;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.complaint-info {
+  flex: 1;
+}
+
+.complaint-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0F3057;
+  margin-bottom: 6px;
+}
+
+.complaint-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.complaint-category {
+  font-size: 12px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.complaint-date {
+  font-size: 12px;
+  color: #999;
+}
+
+.complaint-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.complaint-status {
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.view-btn {
+  padding: 8px 16px;
+  border: 2px solid #1E5F9E;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1E5F9E;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-btn:hover {
+  background: #1E5F9E;
+  color: #fff;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 550px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #0F3057;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: #f5f5f5;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.detail-row label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  flex: 1;
+}
+
+.detail-row span {
+  font-size: 14px;
+  color: #0F3057;
+  text-align: right;
+  flex: 2;
+}
+
+.description-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.assign-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid #eee;
+}
+
+.assign-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0F3057;
+  margin-bottom: 10px;
+}
+
+.staff-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #E0E0E0;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #fff;
+}
+
+.staff-select:focus {
+  border-color: #1E5F9E;
+}
+
+.modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #eee;
+}
+
+.assign-btn {
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  background: #1E5F9E;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.assign-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.assign-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.close-modal-btn {
+  padding: 14px;
+  border: 2px solid #E0E0E0;
+  background: transparent;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-modal-btn:hover {
+  border-color: #666;
+  color: #333;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.empty-state span {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  margin: 0;
+  color: #888;
+  font-size: 15px;
+}
+
+@media (max-width: 768px) {
+  .complaint-card {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .complaint-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-buttons {
+    justify-content: center;
+  }
+}
