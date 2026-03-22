@@ -30,6 +30,7 @@ import { supabase } from '../../services/supabase';
 import { ProfileContext } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useRealTime } from '../../context/RealTimeContext';
 import { uploadProfileImage } from '../../services/storageService';
 
 const { width } = Dimensions.get('window');
@@ -47,6 +48,7 @@ export default function StaffHome({ navigation }: any) {
     message: '',
   });
   const { isDark, colors } = useTheme();
+  const { refreshTrigger } = useRealTime();
 
   // Send message states
   const [supportModal, setSupportModal] = useState(false);
@@ -142,7 +144,7 @@ export default function StaffHome({ navigation }: any) {
     };
 
     getStaffProfile();
-  }, []);
+  }, [refreshTrigger]);
 
   // Animation for modal open/close
   useEffect(() => {

@@ -11,12 +11,13 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
   withTiming,
   interpolate,
   Extrapolate,
@@ -26,6 +27,7 @@ import Animated, {
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
+import { useRealTime } from '../../context/RealTimeContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -49,6 +51,7 @@ const COLORS = {
 
 export default function ComplaintsScreen() {
   const navigation = useNavigation<any>();
+  const { refreshTrigger } = useRealTime();
 
   const [regNo, setRegNo] = useState('');
   const [fullName, setFullName] = useState('');
@@ -63,6 +66,8 @@ export default function ComplaintsScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(true);
+  const [viewModalVisible, setViewModalVisible] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
 
   // Animations
   const headerScale = useSharedValue(0.8);
@@ -82,7 +87,7 @@ export default function ComplaintsScreen() {
   historyOpacity.value = withTiming(1, { duration: 600 });
 
   fetchComplaints(); // ✅ added
-}, []);
+}, [refreshTrigger]);
 const fetchComplaints = async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -266,9 +271,19 @@ const handleSubmit = async () => {
     }
   };
 
+  const openViewModal = (item: any) => {
+    setSelectedComplaint(item);
+    setViewModalVisible(true);
+  };
+
+  const closeViewModal = () => {
+    setSelectedComplaint(null);
+    setViewModalVisible(false);
+  };
+
   const renderHistoryCard = ({ item, index }: any) => {
     const bgColor = getStatusColor(item.status);
-    
+
     return (
       <Animated.View
         entering={FadeInUp.delay(300 + index * 100).duration(500)}
@@ -290,6 +305,13 @@ const handleSubmit = async () => {
           <Text style={styles.historyDate}>
             <Ionicons name="calendar-outline" size={12} color={COLORS.textLight} /> {item.date}
           </Text>
+          <TouchableOpacity
+            style={[styles.viewDetailsBtn, { backgroundColor: bgColor }]}
+            onPress={() => openViewModal(item)}
+          >
+            <Ionicons name="eye-outline" size={16} color="#fff" />
+            <Text style={styles.viewDetailsText}>View Details</Text>
+          </TouchableOpacity>
         </View>
       </Animated.View>
     );
@@ -577,6 +599,61 @@ const handleSubmit = async () => {
           </>
         )}
       </ScrollView>
+
+      {/* View Complaint Modal */}
+      <Modal visible={viewModalVisible} animationType="slide" transparent onRequestClose={closeViewModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.viewModalCard}>
+            <View style={styles.viewModalHeader}>
+              <Text style={styles.viewModalTitle}>Complaint Details</Text>
+              <TouchableOpacity onPress={closeViewModal}>
+                <Ionicons name="close-outline" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Title:</Text>
+                <Text style={styles.detailValue}>{selectedComplaint?.title}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Student Name:</Text>
+                <Text style={styles.detailValue}>{selectedComplaint?.name}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Registration Number:</Text>
+                <Text style={styles.detailValue}>{selectedComplaint?.reg || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Category:</Text>
+                <Text style={styles.detailValue}>{selectedComplaint?.category}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <Text style={[styles.detailValue, { color: getStatusColor(selectedComplaint?.status) }]}>{selectedComplaint?.status}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Date Submitted:</Text>
+                <Text style={styles.detailValue}>{selectedComplaint?.date}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Course:</Text>
+                <Text style={styles.detailValue}>{selectedComplaint?.course}</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.closeViewBtn} onPress={closeViewModal}>
+              <Text style={styles.closeViewText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -853,4 +930,30 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     fontWeight: '500',
   },
+  viewDetailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  viewDetailsText: {
+    color: COLORS.surface,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
+  viewModalCard: { width: '90%', backgroundColor: COLORS.surface, padding: 20, borderRadius: 16, maxHeight: '80%' },
+  viewModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  viewModalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  detailRow: { marginBottom: 12 },
+  detailLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textLight, marginBottom: 4 },
+  detailValue: { fontSize: 14, fontWeight: '500', color: COLORS.text },
+  closeViewBtn: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, alignItems: 'center' },
+  closeViewText: { color: COLORS.primary, fontWeight: '600' },
 });

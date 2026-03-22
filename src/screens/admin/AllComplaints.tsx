@@ -26,6 +26,7 @@ export default function AllComplaints({ navigation }: any) {
   const [sortAsc, setSortAsc] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [viewModalVisible, setViewModalVisible] = useState(false);
 
   const [complaints, setComplaints] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -58,6 +59,16 @@ export default function AllComplaints({ navigation }: any) {
     setSelected(item);
     setSelectedStaff(item.assigned_to || null);
     setModalVisible(true);
+  };
+
+  const openViewModal = (item: any) => {
+    setSelected(item);
+    setViewModalVisible(true);
+  };
+
+  const closeViewModal = () => {
+    setSelected(null);
+    setViewModalVisible(false);
   };
 
   const closeDetails = () => {
@@ -164,7 +175,6 @@ export default function AllComplaints({ navigation }: any) {
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => openDetails(item)}
             style={[styles.card, item.assigned_to ? { borderLeftColor: '#1E90FF' } : {}]}
           >
             <View style={{ flex: 1 }}>
@@ -179,12 +189,99 @@ export default function AllComplaints({ navigation }: any) {
                 </Text>
               )}
             </View>
-            <TouchableOpacity style={{ justifyContent: 'center' }}>
-              <Ionicons name="ellipsis-vertical" size={18} color="#999" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.viewBtn, { backgroundColor: '#1E5F9E' }]}
+                onPress={() => openViewModal(item)}
+              >
+                <Ionicons name="eye-outline" size={18} color="#fff" />
+                <Text style={styles.viewBtnText}>View</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => openDetails(item)}>
+                <Ionicons name="ellipsis-vertical" size={18} color="#999" />
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         )}
       />
+
+      {/* View Complaint Modal */}
+      <Modal visible={viewModalVisible} animationType="slide" transparent onRequestClose={closeViewModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.viewModalCard}>
+            <View style={styles.viewModalHeader}>
+              <Text style={styles.viewModalTitle}>Complaint Details</Text>
+              <TouchableOpacity onPress={closeViewModal}>
+                <Ionicons name="close-outline" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Title:</Text>
+                <Text style={styles.detailValue}>{selected?.title}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Student Name:</Text>
+                <Text style={styles.detailValue}>{selected?.student}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Registration Number:</Text>
+                <Text style={styles.detailValue}>{selected?.reg_no || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Category:</Text>
+                <Text style={styles.detailValue}>{selected?.category}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <Text style={[styles.detailValue, { color: getColor(selected?.status) }]}>{selected?.status}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Priority:</Text>
+                <Text style={[styles.detailValue, {
+                  color: selected?.priority === 'Critical' ? '#FF3B30' : selected?.priority === 'High' ? '#FF9800' : '#4CAF50'
+                }]}>{selected?.priority}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Urgency:</Text>
+                <Text style={styles.detailValue}>{selected?.urgency}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Description:</Text>
+                <Text style={styles.detailDescription}>{selected?.details || selected?.description}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Submitted:</Text>
+                <Text style={styles.detailValue}>
+                  {selected?.created_at ? new Date(selected.created_at).toLocaleString() : 'N/A'}
+                </Text>
+              </View>
+
+              {selected?.assigned_to && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Assigned To:</Text>
+                  <Text style={styles.detailValue}>
+                    {staffList.find(s => s.id === selected.assigned_to)?.full_name || 'Staff'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.closeViewBtn} onPress={closeViewModal}>
+              <Text style={styles.closeViewText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Assign Staff Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeDetails}>
@@ -262,4 +359,15 @@ const styles = StyleSheet.create({
   assignBtn: { backgroundColor: '#1E5F9E', padding: 10, borderRadius: 8, alignItems: 'center' },
   escalateBtn: { backgroundColor: '#FF3B30', padding: 10, borderRadius: 8, alignItems: 'center' },
   assignText: { color: '#fff', fontWeight: '600' },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
+  viewBtnText: { color: '#fff', fontWeight: '600', fontSize: 12 },
+  viewModalCard: { width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 16, maxHeight: '80%' },
+  viewModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  viewModalTitle: { fontSize: 18, fontWeight: '700', color: '#0F3057' },
+  detailRow: { marginBottom: 12 },
+  detailLabel: { fontSize: 12, fontWeight: '600', color: '#888', marginBottom: 4 },
+  detailValue: { fontSize: 14, fontWeight: '500', color: '#0F3057' },
+  detailDescription: { fontSize: 14, color: '#555', lineHeight: 20 },
+  closeViewBtn: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, alignItems: 'center' },
+  closeViewText: { color: '#1E5F9E', fontWeight: '600' },
 });

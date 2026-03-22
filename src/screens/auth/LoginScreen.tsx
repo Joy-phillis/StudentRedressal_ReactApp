@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Animated, {
@@ -175,7 +176,8 @@ const handleLogin = async () => {
       style={styles.wrapper}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Animated.View style={[styles.container, animatedContainer]}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
+        <Animated.View style={[styles.container, animatedContainer]}>
         <Text style={styles.title}>Student Redressal</Text>
         <Text style={styles.subtitle}>Login to continue</Text>
 
@@ -291,7 +293,8 @@ const handleLogin = async () => {
         <Text style={styles.footerText}>
           Secure • Confidential • Transparent
         </Text>
-      </Animated.View>
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

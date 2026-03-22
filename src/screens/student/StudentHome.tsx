@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useRealTime } from '../../context/RealTimeContext';
 import {
   View,
   Text,
@@ -35,6 +36,7 @@ export default function StudentHome({ navigation }: any) {
   const { profile, setProfile } = useContext(ProfileContext);
   const { logout } = useAuth();
   const { isDark, colors } = useTheme();
+  const { refreshTrigger } = useRealTime();
 
   // 🔹 NEW STATES (for Supabase data)
   const [studentName, setStudentName] = useState<string>('Loading...');
@@ -262,7 +264,7 @@ export default function StudentHome({ navigation }: any) {
       fetchComplaints();
       fetchAnnouncements();
       fetchUnreadNotifications();
-    }, [])
+    }, [refreshTrigger])
   );
 
   const headerStyle = useAnimatedStyle(() => ({

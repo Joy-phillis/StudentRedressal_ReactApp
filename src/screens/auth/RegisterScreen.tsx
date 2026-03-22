@@ -213,6 +213,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
             <Ionicons name="person-outline" size={20} color="#555" />
             <TextInput
               placeholder="Full Name"
+              placeholderTextColor="#888888"
               style={styles.input}
               value={fullName}
               onChangeText={(text) => {
@@ -230,6 +231,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
             <Ionicons name="mail-outline" size={20} color="#555" />
             <TextInput
               placeholder="Email Address"
+              placeholderTextColor="#888888"
               style={styles.input}
               value={email}
               keyboardType="email-address"
@@ -249,6 +251,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
             <Ionicons name="lock-closed-outline" size={20} color="#555" />
             <TextInput
               placeholder="Password"
+              placeholderTextColor="#888888"
               secureTextEntry={secureText}
               style={styles.input}
               value={password}
@@ -274,6 +277,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
             <Ionicons name="shield-checkmark-outline" size={20} color="#555" />
             <TextInput
               placeholder="Confirm Password"
+              placeholderTextColor="#888888"
               secureTextEntry={secureConfirmText}
               style={styles.input}
               value={confirmPassword}
@@ -394,6 +398,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     marginLeft: 8,
+    color: '#000000',
   },
   registerButton: {
     backgroundColor: '#0F3057',

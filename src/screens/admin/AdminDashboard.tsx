@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useRealTime } from '../../context/RealTimeContext';
 import {
   View,
   Text,
@@ -28,6 +29,7 @@ export default function AdminDashboard({ navigation }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const { logout } = useAuth();
   const { isDark, colors } = useTheme();
+  const { refreshTrigger } = useRealTime();
 
   // 🔹 NEW: ADMIN NAME STATE
   const [adminName, setAdminName] = useState<string>('Loading...');
@@ -213,7 +215,7 @@ export default function AdminDashboard({ navigation }: any) {
     fetchDashboardData();
     fetchUnreadNotifications();
     fetchMessages();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchMessages = async () => {
     try {
@@ -264,7 +266,7 @@ export default function AdminDashboard({ navigation }: any) {
       fetchDashboardData();
       fetchAdminProfile(); // refresh name if changed
       fetchUnreadNotifications();
-    }, [])
+    }, [refreshTrigger])
   );
 
   // 🔹 REAL-TIME NOTIFICATION LISTENER
