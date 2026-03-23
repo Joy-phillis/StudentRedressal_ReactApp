@@ -83,18 +83,6 @@ export default function Notifications() {
     }
   }
 
-  function getNotificationColor(type: string) {
-    switch (type) {
-      case 'urgent': return '#FF6B6B'
-      case 'complaint': return '#2196F3'
-      case 'update': return '#4CAF50'
-      case 'announcement': return '#4CAF50'
-      case 'system': return '#FFA500'
-      case 'rating': return '#4CAF50'
-      default: return '#2E5090'
-    }
-  }
-
   function getNotificationIcon(type: string) {
     switch (type) {
       case 'urgent': return '⚠️'
