@@ -334,9 +334,9 @@ export default function StaffHome({ navigation }: any) {
 
         console.log('User ID:', user.id);
 
-        // Upload to Supabase Storage
+        // Upload to Supabase Storage and save URL to database
         const { url, error } = await uploadProfileImage(user.id, imageUri);
-        
+
         if (error) {
           console.error('Upload failed:', error);
           Alert.alert('Error', 'Upload failed: ' + error);
@@ -344,21 +344,6 @@ export default function StaffHome({ navigation }: any) {
         }
 
         console.log('Upload successful, URL:', url);
-
-        // Update profile in database
-        const { data: updateData, error: updateError } = await supabase
-          .from('profiles')
-          .update({ avatar_url: url })
-          .eq('id', user.id)
-          .select();
-
-        if (updateError) {
-          console.error('Database update failed:', updateError);
-          Alert.alert('Error', 'Failed to save: ' + updateError.message);
-          return;
-        }
-
-        console.log('Database update successful:', updateData);
         setProfileImage(url);
         Alert.alert('Success', 'Profile image updated!');
       }

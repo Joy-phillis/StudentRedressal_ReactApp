@@ -80,18 +80,10 @@ export default function AdminProfile({ navigation }: any) {
       const image = result.assets[0];
       setUploading(true);
 
-      // Upload using storageService
+      // Upload using storageService (also updates profiles.avatar_url)
       const { url, error } = await uploadProfileImage(userId, image.uri);
 
       if (error) throw new Error(error);
-
-      // Update profile table with new image URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: url })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
 
       setAvatarUrl(url);
       Alert.alert('Success', 'Profile image updated and saved!');

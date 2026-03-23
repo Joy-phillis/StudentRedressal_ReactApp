@@ -81,13 +81,30 @@ export const uploadProfileImage = async (
       });
 
     if (dbError) {
-      console.error('Database save error:', dbError);
+      console.error('Database save error (profile_images):', dbError);
       console.error('Error details:', JSON.stringify(dbError, null, 2));
       // Don't throw - image is uploaded, just log the error
-      console.log('Image uploaded but failed to save URL to database');
+      console.log('Image uploaded but failed to save URL to profile_images table');
     }
 
-    console.log('Profile image URL saved to database:', upsertData);
+    console.log('Profile image URL saved to profile_images table:', upsertData);
+
+    // Also update profiles.avatar_url for consistency across all user types
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (profileError) {
+      console.error('Database save error (profiles):', profileError);
+      console.error('Error details:', JSON.stringify(profileError, null, 2));
+      console.log('Failed to update profiles.avatar_url');
+    } else {
+      console.log('Profile avatar_url updated in profiles table');
+    }
 
     return { url: publicUrl, error: null };
   } catch (error: any) {
