@@ -44,6 +44,7 @@ export default function StudentHome({ navigation }: any) {
   const [totalCount, setTotalCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
+  const [inProgressCount, setInProgressCount] = useState(0);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [performanceInsights, setPerformanceInsights] = useState({
@@ -55,47 +56,62 @@ export default function StudentHome({ navigation }: any) {
 
   // 🔹 FETCH FROM SUPABASE
   const fetchComplaints = async () => {
-    const { data, error } = await supabase
-      .from('complaints')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.log('Fetch error:', error.message);
-      return;
-    }
-
-    if (data) {
-      setComplaints(data.slice(0, 5)); // latest 5 only
-      setTotalCount(data.length);
-      setPendingCount(data.filter(item => item.status === 'Pending').length);
-      setResolvedCount(data.filter(item => item.status === 'Resolved').length);
-
-      // Calculate performance insights
-      const resolved = data.filter(c => c.status === 'Resolved');
-      const resolutionRate = data.length > 0 ? Math.round((resolved.length / data.length) * 100) : 0;
-      const avgResolutionDays = resolved.length > 0 ? 3.5 : 0; // Mock - would need resolved_at for accurate
+    try {
+      // Get current logged-in user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      let trend = 'stable';
-      let message = '';
-      
-      if (resolutionRate >= 80) {
-        trend = 'improving';
-        message = `Great! ${resolutionRate}% of your complaints have been resolved.`;
-      } else if (resolutionRate >= 50) {
-        trend = 'stable';
-        message = `${resolutionRate}% resolution rate. ${data.filter(c => c.status === 'Pending').length} pending.`;
-      } else {
-        trend = 'declining';
-        message = `${data.filter(c => c.status === 'Pending').length} complaints awaiting resolution.`;
+      if (!user) {
+        console.log('No authenticated user');
+        return;
       }
 
-      setPerformanceInsights({
-        avgResolutionDays,
-        resolutionRate,
-        trend,
-        message,
-      });
+      // Fetch only this student's complaints
+      const { data, error } = await supabase
+        .from('complaints')
+        .select('*')
+        .eq('user_id', user.id)  // Filter by logged-in user
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Fetch error:', error.message);
+        return;
+      }
+
+      if (data) {
+        setComplaints(data.slice(0, 5)); // latest 5 only
+        setTotalCount(data.length);
+        setPendingCount(data.filter(item => item.status === 'Pending').length);
+        setResolvedCount(data.filter(item => item.status === 'Resolved').length);
+        setInProgressCount(data.filter(item => item.status === 'In-Progress').length);
+
+        // Calculate performance insights
+        const resolved = data.filter(c => c.status === 'Resolved');
+        const resolutionRate = data.length > 0 ? Math.round((resolved.length / data.length) * 100) : 0;
+        const avgResolutionDays = resolved.length > 0 ? 3.5 : 0;
+
+        let trend = 'stable';
+        let message = '';
+
+        if (resolutionRate >= 80) {
+          trend = 'improving';
+          message = `Great! ${resolutionRate}% of your complaints have been resolved.`;
+        } else if (resolutionRate >= 50) {
+          trend = 'stable';
+          message = `${resolutionRate}% resolution rate. ${data.filter(c => c.status === 'Pending').length} pending.`;
+        } else {
+          trend = 'declining';
+          message = `${data.filter(c => c.status === 'Pending').length} complaints awaiting resolution.`;
+        }
+
+        setPerformanceInsights({
+          avgResolutionDays,
+          resolutionRate,
+          trend,
+          message,
+        });
+      }
+    } catch (error) {
+      console.log('Error fetching complaints:', error);
     }
   };
 
@@ -367,12 +383,13 @@ const handleLogout = () => {
           {/* Quick Stats */}
           <Animated.View style={[styles.statsContainer, statsStyle]}>
             {[
-              { icon: 'document-text-outline', label: 'Total Complaints', value: totalCount, color: '#1E5F9E' },
+              { icon: 'document-text-outline', label: 'My Complaints', value: totalCount, color: '#1E5F9E' },
               { icon: 'time-outline', label: 'Pending', value: pendingCount, color: '#FF9800' },
+              { icon: 'analytics-outline', label: 'In-Progress', value: inProgressCount, color: '#2196F3' },
               { icon: 'checkmark-circle-outline', label: 'Resolved', value: resolvedCount, color: '#4CAF50' },
             ].map((stat, idx) => (
               <View key={idx} style={[styles.statCard, { backgroundColor: stat.color }]}>
-                <Ionicons name={stat.icon as any} size={28} color="#fff" />
+                <Ionicons name={stat.icon as any} size={24} color="#fff" />
                 <Text style={styles.statNumber}>{stat.value}</Text>
                 <Text style={styles.statLabel}>{stat.label}</Text>
               </View>
@@ -559,10 +576,17 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  statsContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between', 
+    marginBottom: 20,
+    gap: 10,
+  },
   statCard: {
-    width: '30%',
-    paddingVertical: 25,
+    width: '48%',
+    paddingVertical: 18,
+    paddingHorizontal: 12,
     borderRadius: 15,
     alignItems: 'center',
     elevation: 6,
@@ -571,8 +595,8 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 3 },
   },
-  statNumber: { fontSize: 20, fontWeight: '700', color: '#fff', marginTop: 5 },
-  statLabel: { fontSize: 12, color: '#fff', marginTop: 2, textAlign: 'center' },
+  statNumber: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: 5 },
+  statLabel: { fontSize: 11, color: '#fff', marginTop: 2, textAlign: 'center', paddingHorizontal: 4 },
 
   sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0F3057', marginBottom: 15 },
 

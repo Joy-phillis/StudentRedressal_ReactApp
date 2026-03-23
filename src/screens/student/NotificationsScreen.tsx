@@ -264,6 +264,8 @@ export default function NotificationsScreen() {
         return COLORS.accent;
       case 'system':
         return COLORS.warning;
+      case 'rating':
+        return COLORS.accent;
       default:
         return COLORS.primary;
     }
@@ -281,6 +283,8 @@ export default function NotificationsScreen() {
         return 'star';
       case 'system':
         return 'settings';
+      case 'rating':
+        return 'star';
       default:
         return 'bell';
     }
@@ -441,6 +445,7 @@ export default function NotificationsScreen() {
           {renderFilterButton('all', 'All')}
           {renderFilterButton('unread', 'Unread')}
           {renderFilterButton('complaint', 'Issues')}
+          {renderFilterButton('rating', 'Ratings')}
           {renderFilterButton('urgent', 'Urgent')}
           {renderFilterButton('announcement', 'News')}
         </ScrollView>

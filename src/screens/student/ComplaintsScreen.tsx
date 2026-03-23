@@ -45,6 +45,7 @@ const COLORS = {
   border: '#E5E7EB',
   shadow: '#000000',
   error: '#EF4444',
+  success: '#10B981',
 };
 
 
@@ -68,6 +69,10 @@ export default function ComplaintsScreen() {
   const [showForm, setShowForm] = useState(true);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
+  const [rating, setRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
 
   // Animations
   const headerScale = useSharedValue(0.8);
@@ -279,6 +284,91 @@ const handleSubmit = async () => {
   const closeViewModal = () => {
     setSelectedComplaint(null);
     setViewModalVisible(false);
+    setRating(0);
+    setHasRated(false);
+  };
+
+  // Submit rating for resolved complaint
+  const submitRating = async () => {
+    if (rating === 0) {
+      Alert.alert('Rating Required', 'Please select a rating to continue.');
+      return;
+    }
+
+    if (!selectedComplaint) return;
+
+    setSubmittingRating(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        setSubmittingRating(false);
+        return;
+      }
+
+      // Get the assigned staff ID for this complaint
+      const { data: complaintData } = await supabase
+        .from('complaints')
+        .select('assigned_to, title')
+        .eq('id', selectedComplaint.id)
+        .single();
+
+      // Insert rating into ratings table
+      const { error: ratingError } = await supabase
+        .from('ratings')
+        .insert([
+          {
+            complaint_id: selectedComplaint.id,
+            user_id: user.id,
+            rating: rating,
+            feedback: '',
+          },
+        ]);
+
+      if (ratingError) throw ratingError;
+
+      // Create notification for assigned staff (if any)
+      if (complaintData?.assigned_to) {
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert([
+            {
+              recipient_id: complaintData.assigned_to,
+              recipient_type: 'staff',
+              type: 'rating',
+              title: 'New Rating Received',
+              message: `You received a ${rating}-star rating for "${complaintData.title}"`,
+              is_read: false,
+            },
+          ]);
+
+        if (notifError) console.log('Notification error:', notifError.message);
+      }
+
+      // Create notification for admin
+      const { error: adminNotifError } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            recipient_type: 'admin',
+            type: 'rating',
+            title: 'New Rating Received',
+            message: `Student rated complaint "${complaintData?.title || 'Resolved Complaint'}" with ${rating} stars`,
+            is_read: false,
+          },
+        ]);
+
+      if (adminNotifError) console.log('Admin notification error:', adminNotifError.message);
+
+      Alert.alert('Thank You!', `You rated this complaint ${rating} star${rating > 1 ? 's' : ''}. Your feedback helps us improve!`);
+      setHasRated(true);
+      setSubmittingRating(false);
+    } catch (error: any) {
+      console.error('Rating error:', error);
+      Alert.alert('Error', error.message || 'Failed to submit rating');
+      setSubmittingRating(false);
+    }
   };
 
   const renderHistoryCard = ({ item, index }: any) => {
@@ -646,6 +736,51 @@ const handleSubmit = async () => {
                 <Text style={styles.detailLabel}>Course:</Text>
                 <Text style={styles.detailValue}>{selectedComplaint?.course}</Text>
               </View>
+
+              {/* Rating Section - Only show for Resolved complaints */}
+              {selectedComplaint?.status === 'Resolved' && !hasRated && (
+                <View style={styles.ratingSection}>
+                  <Text style={styles.ratingTitle}>Rate this Resolution</Text>
+                  <Text style={styles.ratingSubtitle}>How satisfied are you with the resolution?</Text>
+                  <View style={styles.starContainer}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setRating(star)}
+                        onPressIn={() => setHoverRating(star)}
+                        onPressOut={() => setHoverRating(0)}
+                        disabled={submittingRating}
+                      >
+                        <Ionicons
+                          name={star <= (hoverRating || rating) ? 'star' : 'star-outline'}
+                          size={40}
+                          color={star <= (hoverRating || rating) ? '#FFB800' : '#CCCCCC'}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={styles.ratingValue}>
+                    {rating > 0 ? `${rating} Star${rating > 1 ? 's' : ''}` : 'Tap to rate'}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.submitRatingBtn, submittingRating && { opacity: 0.6 }]}
+                    onPress={submitRating}
+                    disabled={submittingRating || rating === 0}
+                  >
+                    <Text style={styles.submitRatingText}>
+                      {submittingRating ? 'Submitting...' : 'Submit Rating'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Already Rated Message */}
+              {selectedComplaint?.status === 'Resolved' && hasRated && (
+                <View style={styles.ratedSection}>
+                  <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
+                  <Text style={styles.ratedText}>Thank you! You have rated this complaint.</Text>
+                </View>
+              )}
             </ScrollView>
 
             <TouchableOpacity style={styles.closeViewBtn} onPress={closeViewModal}>
@@ -956,4 +1091,13 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: 14, fontWeight: '500', color: COLORS.text },
   closeViewBtn: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, alignItems: 'center' },
   closeViewText: { color: COLORS.primary, fontWeight: '600' },
+  ratingSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border, alignItems: 'center' },
+  ratingTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
+  ratingSubtitle: { fontSize: 13, color: COLORS.textLight, marginBottom: 16, textAlign: 'center' },
+  starContainer: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  ratingValue: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 12 },
+  submitRatingBtn: { backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, minWidth: 150, alignItems: 'center' },
+  submitRatingText: { color: COLORS.surface, fontSize: 15, fontWeight: '700' },
+  ratedSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border, alignItems: 'center', gap: 8 },
+  ratedText: { fontSize: 14, fontWeight: '600', color: COLORS.success, textAlign: 'center' },
 });

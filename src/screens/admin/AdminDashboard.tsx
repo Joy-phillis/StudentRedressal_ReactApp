@@ -419,7 +419,7 @@ export default function AdminDashboard({ navigation }: any) {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('Complaints')}>
+              <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => navigation.navigate('Notifications')}>
                 <Ionicons name="notifications-outline" size={24} color="#0F3057" />
                 {unreadNotificationCount > 0 && (
                   <View style={styles.notificationBadge}>

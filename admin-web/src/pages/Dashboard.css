@@ -133,6 +133,12 @@
   position: relative;
   font-size: 24px;
   cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.notification-icon:hover {
+  transform: scale(1.1);
 }
 
 .notification-badge {

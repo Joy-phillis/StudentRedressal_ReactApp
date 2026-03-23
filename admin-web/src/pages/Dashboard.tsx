@@ -232,12 +232,12 @@ export default function Dashboard() {
             <h2 className="header-name">{user?.full_name || 'Admin'}</h2>
           </div>
           <div className="header-right">
-            <div className="notification-icon">
+            <a href="/notifications" className="notification-icon">
               🔔
               {unreadCount > 0 && (
                 <span className="notification-badge">{unreadCount}</span>
               )}
-            </div>
+            </a>
             <a href="/profile" className="profile-avatar">
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt="Profile" />

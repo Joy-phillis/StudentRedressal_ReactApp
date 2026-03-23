@@ -9,6 +9,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Announcements from './pages/Announcements'
 import Profile from './pages/Profile'
+import Notifications from './pages/Notifications'
 import './App.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -95,6 +96,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <Notifications />
           </ProtectedRoute>
         }
       />
