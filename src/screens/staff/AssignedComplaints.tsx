@@ -30,6 +30,7 @@ export default function AssignedComplaints({ navigation }: any) {
   const [assignedComplaints, setAssignedComplaints] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // Fetch logged-in user
   useEffect(() => {
@@ -87,10 +88,10 @@ export default function AssignedComplaints({ navigation }: any) {
     setSelected(null);
   };
 
-  // Update status in Supabase
-  const updateStatus = async (status: string) => {
+  // Update status in Supabase from View Modal
+  const updateStatusFromView = async (status: string) => {
     if (!selected) return;
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setUpdatingStatus(true);
 
     const { error } = await supabase
       .from('complaints')
@@ -101,11 +102,12 @@ export default function AssignedComplaints({ navigation }: any) {
       Alert.alert('Error', `Failed to update status: ${error.message}`);
     } else {
       Alert.alert('Success', `Complaint marked as ${status}`);
-      // Refresh list
+      // Update local state
       setAssignedComplaints(prev =>
         prev.map(c => (c.id === selected.id ? { ...c, status } : c))
       );
-      closeDetails();
+      setSelected({ ...selected, status });
+      setUpdatingStatus(false);
     }
   };
 
@@ -231,6 +233,37 @@ export default function AssignedComplaints({ navigation }: any) {
                   {selected?.created_at ? new Date(selected.created_at).toLocaleString() : 'N/A'}
                 </Text>
               </View>
+
+              {/* Status Update Section */}
+              <View style={styles.statusUpdateSection}>
+                <Text style={styles.statusUpdateLabel}>Update Status:</Text>
+                <View style={styles.statusButtons}>
+                  <TouchableOpacity
+                    style={[styles.statusButton, selected?.status === 'Pending' && { backgroundColor: '#FF9800' }]}
+                    onPress={() => updateStatusFromView('Pending')}
+                    disabled={updatingStatus}
+                  >
+                    <Text style={[styles.statusButtonText, selected?.status === 'Pending' && { color: '#fff' }]}>Pending</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusButton, selected?.status === 'In-Progress' && { backgroundColor: '#1E5F9E' }]}
+                    onPress={() => updateStatusFromView('In-Progress')}
+                    disabled={updatingStatus}
+                  >
+                    <Text style={[styles.statusButtonText, selected?.status === 'In-Progress' && { color: '#fff' }]}>In-Progress</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusButton, selected?.status === 'Resolved' && { backgroundColor: '#4CAF50' }]}
+                    onPress={() => updateStatusFromView('Resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <Text style={[styles.statusButtonText, selected?.status === 'Resolved' && { color: '#fff' }]}>Resolved</Text>
+                  </TouchableOpacity>
+                </View>
+                {updatingStatus && (
+                  <Text style={styles.updatingText}>Updating status...</Text>
+                )}
+              </View>
             </ScrollView>
 
             <TouchableOpacity style={styles.closeViewBtn} onPress={closeViewModal}>
@@ -298,4 +331,10 @@ const styles = StyleSheet.create({
   detailDescription: { fontSize: 14, color: '#555', lineHeight: 20 },
   closeViewBtn: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, alignItems: 'center' },
   closeViewText: { color: '#1E5F9E', fontWeight: '600' },
+  statusUpdateSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#eee' },
+  statusUpdateLabel: { fontSize: 14, fontWeight: '600', color: '#0F3057', marginBottom: 10 },
+  statusButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  statusButton: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
+  statusButtonText: { fontSize: 12, fontWeight: '600', color: '#555' },
+  updatingText: { fontSize: 11, color: '#888', marginTop: 8, textAlign: 'center' },
 });

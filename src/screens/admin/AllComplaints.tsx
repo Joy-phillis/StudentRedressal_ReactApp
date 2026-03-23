@@ -31,6 +31,8 @@ export default function AllComplaints({ navigation }: any) {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deletingComplaint, setDeletingComplaint] = useState(false);
 
   // Fetch complaints
   const fetchComplaints = async () => {
@@ -75,6 +77,64 @@ export default function AllComplaints({ navigation }: any) {
     setSelected(null);
     setSelectedStaff(null);
     setModalVisible(false);
+  };
+
+  // Update status in Supabase from View Modal
+  const updateStatusFromView = async (status: string) => {
+    if (!selected) return;
+    setUpdatingStatus(true);
+
+    const { error } = await supabase
+      .from('complaints')
+      .update({ status })
+      .eq('id', selected.id);
+
+    if (error) {
+      Alert.alert('Error', `Failed to update status: ${error.message}`);
+    } else {
+      Alert.alert('Success', `Complaint marked as ${status}`);
+      // Update local state
+      setComplaints(prev =>
+        prev.map(c => (c.id === selected.id ? { ...c, status } : c))
+      );
+      setSelected({ ...selected, status });
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Delete complaint from Supabase
+  const deleteComplaint = async () => {
+    if (!selected) return;
+
+    Alert.alert(
+      'Delete Complaint',
+      'Are you sure you want to delete this resolved complaint? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingComplaint(true);
+            const { error } = await supabase
+              .from('complaints')
+              .delete()
+              .eq('id', selected.id);
+
+            if (error) {
+              Alert.alert('Error', `Failed to delete: ${error.message}`);
+              setDeletingComplaint(false);
+            } else {
+              Alert.alert('Success', 'Complaint deleted successfully');
+              // Remove from local state
+              setComplaints(prev => prev.filter(c => c.id !== selected.id));
+              setDeletingComplaint(false);
+              closeViewModal();
+            }
+          },
+        },
+      ]
+    );
   };
 
   const assignToStaff = async () => {
@@ -274,11 +334,56 @@ export default function AllComplaints({ navigation }: any) {
                   </Text>
                 </View>
               )}
+
+              {/* Status Update Section */}
+              <View style={styles.statusUpdateSection}>
+                <Text style={styles.statusUpdateLabel}>Update Status:</Text>
+                <View style={styles.statusButtons}>
+                  <TouchableOpacity
+                    style={[styles.statusButton, selected?.status === 'Pending' && { backgroundColor: '#FF9800' }]}
+                    onPress={() => updateStatusFromView('Pending')}
+                    disabled={updatingStatus}
+                  >
+                    <Text style={[styles.statusButtonText, selected?.status === 'Pending' && { color: '#fff' }]}>Pending</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusButton, selected?.status === 'In-Progress' && { backgroundColor: '#1E5F9E' }]}
+                    onPress={() => updateStatusFromView('In-Progress')}
+                    disabled={updatingStatus}
+                  >
+                    <Text style={[styles.statusButtonText, selected?.status === 'In-Progress' && { color: '#fff' }]}>In-Progress</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statusButton, selected?.status === 'Resolved' && { backgroundColor: '#4CAF50' }]}
+                    onPress={() => updateStatusFromView('Resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <Text style={[styles.statusButtonText, selected?.status === 'Resolved' && { color: '#fff' }]}>Resolved</Text>
+                  </TouchableOpacity>
+                </View>
+                {updatingStatus && (
+                  <Text style={styles.updatingText}>Updating status...</Text>
+                )}
+              </View>
             </ScrollView>
 
             <TouchableOpacity style={styles.closeViewBtn} onPress={closeViewModal}>
               <Text style={styles.closeViewText}>Close</Text>
             </TouchableOpacity>
+
+            {/* Delete Button - Only show for Resolved complaints */}
+            {selected?.status === 'Resolved' && (
+              <TouchableOpacity
+                style={[styles.deleteBtn, deletingComplaint && { opacity: 0.5 }]}
+                onPress={deleteComplaint}
+                disabled={deletingComplaint}
+              >
+                <Ionicons name="trash-outline" size={18} color="#fff" />
+                <Text style={styles.deleteBtnText}>
+                  {deletingComplaint ? 'Deleting...' : 'Delete Complaint'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -370,4 +475,21 @@ const styles = StyleSheet.create({
   detailDescription: { fontSize: 14, color: '#555', lineHeight: 20 },
   closeViewBtn: { marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, alignItems: 'center' },
   closeViewText: { color: '#1E5F9E', fontWeight: '600' },
+  statusUpdateSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#eee' },
+  statusUpdateLabel: { fontSize: 14, fontWeight: '600', color: '#0F3057', marginBottom: 10 },
+  statusButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  statusButton: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
+  statusButtonText: { fontSize: 12, fontWeight: '600', color: '#555' },
+  updatingText: { fontSize: 11, color: '#888', marginTop: 8, textAlign: 'center' },
+  deleteBtn: {
+    marginTop: 12,
+    padding: 14,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  deleteBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

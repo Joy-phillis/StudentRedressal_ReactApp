@@ -27,6 +27,8 @@ export default function AllComplaints() {
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [deletingComplaint, setDeletingComplaint] = useState(false)
 
   useEffect(() => {
     fetchComplaints()
@@ -67,6 +69,54 @@ export default function AllComplaints() {
     setSelectedComplaint(null)
     setSelectedStaff(null)
     setModalOpen(false)
+  }
+
+  async function updateStatusFromView(newStatus: string) {
+    if (!selectedComplaint) return
+
+    setUpdatingStatus(true)
+    const { error } = await supabase
+      .from('complaints')
+      .update({ status: newStatus })
+      .eq('id', selectedComplaint.id)
+
+    if (!error) {
+      alert(`Complaint marked as ${newStatus}`)
+      // Update local state
+      setComplaints(prev =>
+        prev.map(c => (c.id === selectedComplaint.id ? { ...c, status: newStatus } : c))
+      )
+      setSelectedComplaint({ ...selectedComplaint, status: newStatus } as Complaint)
+      setUpdatingStatus(false)
+    } else {
+      alert('Failed to update status. Try again.')
+      setUpdatingStatus(false)
+    }
+  }
+
+  async function deleteComplaint() {
+    if (!selectedComplaint) return
+
+    if (!window.confirm('Are you sure you want to delete this resolved complaint? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingComplaint(true)
+    const { error } = await supabase
+      .from('complaints')
+      .delete()
+      .eq('id', selectedComplaint.id)
+
+    if (!error) {
+      alert('Complaint deleted successfully')
+      // Update local state
+      setComplaints(prev => prev.filter(c => c.id !== selectedComplaint.id))
+      setDeletingComplaint(false)
+      closeDetails()
+    } else {
+      alert('Failed to delete complaint. Try again.')
+      setDeletingComplaint(false)
+    }
   }
 
   async function assignToStaff() {
@@ -243,6 +293,37 @@ export default function AllComplaints() {
                 <span>{new Date(selectedComplaint.created_at).toLocaleString()}</span>
               </div>
 
+              {/* Status Update Section */}
+              <div className="status-update-section">
+                <label className="assign-label">Update Status:</label>
+                <div className="status-buttons">
+                  <button
+                    className={`status-btn ${selectedComplaint.status === 'Pending' ? 'active' : ''}`}
+                    onClick={() => updateStatusFromView('Pending')}
+                    disabled={updatingStatus}
+                  >
+                    Pending
+                  </button>
+                  <button
+                    className={`status-btn ${selectedComplaint.status === 'In-Progress' ? 'active' : ''}`}
+                    onClick={() => updateStatusFromView('In-Progress')}
+                    disabled={updatingStatus}
+                  >
+                    In-Progress
+                  </button>
+                  <button
+                    className={`status-btn ${selectedComplaint.status === 'Resolved' ? 'active' : ''}`}
+                    onClick={() => updateStatusFromView('Resolved')}
+                    disabled={updatingStatus}
+                  >
+                    Resolved
+                  </button>
+                </div>
+                {updatingStatus && (
+                  <span className="updating-text">Updating status...</span>
+                )}
+              </div>
+
               {/* Assign to Staff */}
               <div className="assign-section">
                 <label className="assign-label">Assign to Staff:</label>
@@ -271,6 +352,16 @@ export default function AllComplaints() {
               <button className="close-modal-btn" onClick={closeDetails}>
                 Close
               </button>
+              {/* Delete Button - Only show for Resolved complaints */}
+              {selectedComplaint.status === 'Resolved' && (
+                <button
+                  className="delete-btn"
+                  onClick={deleteComplaint}
+                  disabled={deletingComplaint}
+                >
+                  {deletingComplaint ? 'Deleting...' : '🗑️ Delete Complaint'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Animated, {
@@ -36,6 +37,7 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
   const [secureText, setSecureText] = useState(true);
   const [secureConfirmText, setSecureConfirmText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showPasswordHint, setShowPasswordHint] = useState(false);
 
   // 🔹 Error States
   const [nameError, setNameError] = useState('');
@@ -262,13 +264,18 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
               onFocus={() => (passwordFocus.value = withTiming(1))}
               onBlur={() => (passwordFocus.value = withTiming(0))}
             />
-            <TouchableOpacity onPress={() => setSecureText(!secureText)}>
-              <Ionicons
-                name={secureText ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color="#555"
-              />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity onPress={() => setShowPasswordHint(true)}>
+                <Ionicons name="information-circle-outline" size={20} color="#1E5F9E" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSecureText(!secureText)}>
+                <Ionicons
+                  name={secureText ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#555"
+                />
+              </TouchableOpacity>
+            </View>
           </Animated.View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
@@ -327,6 +334,43 @@ export default function RegisterScreen({ setUserRole }: RegisterScreenProps) {
           </Text>
         </Animated.View>
       </ScrollView>
+
+      {/* Password Requirements Modal */}
+      <Modal visible={showPasswordHint} animationType="fade" transparent onRequestClose={() => setShowPasswordHint(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.passwordModalCard}>
+            <View style={styles.passwordModalHeader}>
+              <Ionicons name="shield-checkmark" size={32} color="#1E5F9E" />
+              <Text style={styles.passwordModalTitle}>Password Requirements</Text>
+            </View>
+            <View style={styles.requirementsList}>
+              <View style={styles.requirementItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.requirementText}>Minimum 8 characters</Text>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.requirementText}>At least 1 uppercase letter (A-Z)</Text>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.requirementText}>At least 1 lowercase letter (a-z)</Text>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.requirementText}>At least 1 number (0-9)</Text>
+              </View>
+              <View style={styles.requirementItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.requirementText}>At least 1 special character (@, $, !, %, *, ?, &, #, etc.)</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.closePasswordHintBtn} onPress={() => setShowPasswordHint(false)}>
+              <Text style={styles.closePasswordHintText}>Got it!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -435,5 +479,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 10,
     marginLeft: 5,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  passwordModalCard: {
+    width: '85%',
+    backgroundColor: '#fff',
+    padding: 24,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  passwordModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  passwordModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F3057',
+  },
+  requirementsList: {
+    marginBottom: 20,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  requirementText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  closePasswordHintBtn: {
+    backgroundColor: '#1E5F9E',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  closePasswordHintText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

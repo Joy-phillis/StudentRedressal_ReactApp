@@ -375,6 +375,27 @@
   color: #333;
 }
 
+.delete-btn {
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  background: #FF3B30;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -393,6 +414,56 @@
   margin: 0;
   color: #888;
   font-size: 15px;
+}
+
+/* Status Update Section */
+.status-update-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid #eee;
+}
+
+.status-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.status-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid #E0E0E0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-btn:hover:not(:disabled) {
+  border-color: #1E5F9E;
+  color: #1E5F9E;
+}
+
+.status-btn.active {
+  border-color: #1E5F9E;
+  background: #1E5F9E;
+  color: #fff;
+}
+
+.status-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.updating-text {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+  margin-top: 8px;
 }
 
 @media (max-width: 768px) {
