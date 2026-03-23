@@ -21,6 +21,8 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ProfileContext } from '../../context/ProfileContext';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../services/supabase';
+import { uploadProfileImage } from '../../services/storageService';
 
 const { width } = Dimensions.get('window');
 
@@ -65,11 +67,30 @@ export default function ProfileScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        setProfile({ image: uri });
-        Alert.alert('Success', 'Profile photo updated successfully!');
+        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          Alert.alert('Error', 'User not authenticated');
+          return;
+        }
+        
+        // Upload to Supabase Storage
+        Alert.alert('Uploading', 'Please wait...');
+        const { url, error } = await uploadProfileImage(user.id, uri);
+        
+        if (error) {
+          Alert.alert('Error', 'Upload failed: ' + error);
+          return;
+        }
+        
+        // Update profile context
+        setProfile({ image: url });
+        Alert.alert('Success', 'Profile photo updated and saved!');
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload photo');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Failed to upload photo: ' + error.message);
     }
   };
 

@@ -14,6 +14,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
+import { uploadProfileImage } from '../../services/storageService';
 
 export default function AdminProfile({ navigation }: any) {
   const [loading, setLoading] = useState(true);
@@ -68,7 +69,7 @@ export default function AdminProfile({ navigation }: any) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ correct
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -79,43 +80,26 @@ export default function AdminProfile({ navigation }: any) {
       const image = result.assets[0];
       setUploading(true);
 
-      // ✅ Convert image URI to Blob
-      const response = await fetch(image.uri);
-      const blob = await response.blob();
+      // Upload using storageService
+      const { url, error } = await uploadProfileImage(userId, image.uri);
 
-      const ext = image.uri.split('.').pop();
-      const filePath = `avatars/${userId}/${Date.now()}.${ext ?? 'png'}`;
+      if (error) throw new Error(error);
 
-      // ✅ Upload to Supabase public bucket
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: blob.type || 'image/png',
-        });
-
-      if (uploadError) throw uploadError;
-
-      // ✅ Get public URL
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
-
-      // ✅ Update profile table
+      // Update profile table with new image URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: url })
         .eq('id', userId);
 
       if (updateError) throw updateError;
 
-      setAvatarUrl(publicUrl);
-      Alert.alert('Success', 'Profile image updated!');
+      setAvatarUrl(url);
+      Alert.alert('Success', 'Profile image updated and saved!');
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert(
         'Error',
-        'Upload failed. Check your internet connection and ensure your Supabase bucket is public.'
+        'Upload failed. Please try again.'
       );
     } finally {
       setUploading(false);

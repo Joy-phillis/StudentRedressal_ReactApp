@@ -137,7 +137,7 @@ export default function SettingsScreen() {
           console.log('Profile image fetch error:', imageError.message);
         } else if (imageData?.image_url) {
           console.log('Profile image URL:', imageData.image_url);
-          setProfile(prev => ({ ...prev, image: imageData.image_url }));
+          setProfile({ image: imageData.image_url });
         }
 
         // Fetch registration number from complaints table
@@ -154,7 +154,7 @@ export default function SettingsScreen() {
         } else if (complaintData) {
           console.log('Registration number:', complaintData.registration_number);
           setRegistrationNumber(complaintData.registration_number);
-          setProfile(prev => ({ ...prev, registration: complaintData.registration_number }));
+          setProfile({ registration: complaintData.registration_number });
         }
       }
     } catch (error) {

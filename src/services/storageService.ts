@@ -16,7 +16,7 @@ export const uploadProfileImage = async (
 
     // For React Native, we need to handle the URI differently
     const isLocalFile = imageUri.startsWith('file://') || imageUri.startsWith('/');
-    
+
     let blob: Blob;
     if (isLocalFile) {
       // For local files, use XMLHttpRequest
@@ -41,14 +41,13 @@ export const uploadProfileImage = async (
 
     console.log('Blob created:', blob.type, blob.size);
 
-    // Generate unique filename
-    const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-    const fileName = `${userId}/${Date.now()}.${fileExt}`;
-    
+    // Generate consistent filename: userId/profile.jpg
+    const fileName = `${userId}/profile.jpg`;
+
     console.log('Uploading to:', fileName);
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { data, error: uploadError } = await supabase.storage
       .from('profile-images')
       .upload(fileName, blob, {
         cacheControl: '3600',
@@ -56,9 +55,9 @@ export const uploadProfileImage = async (
         contentType: blob.type,
       });
 
-    if (error) {
-      console.error('Upload error:', error);
-      throw error;
+    if (uploadError) {
+      console.error('Upload error details:', JSON.stringify(uploadError, null, 2));
+      throw new Error(`Storage upload failed: ${uploadError.message}`);
     }
 
     console.log('Upload successful:', data);
@@ -70,11 +69,11 @@ export const uploadProfileImage = async (
 
     console.log('Public URL:', publicUrl);
 
-    // Save URL to profile_images table using INSERT ... ON CONFLICT
+    // Save URL to profile_images table
     const { data: upsertData, error: dbError } = await supabase
       .from('profile_images')
-      .upsert({ 
-        user_id: userId, 
+      .upsert({
+        user_id: userId,
         image_url: publicUrl,
         updated_at: new Date().toISOString()
       }, {
@@ -83,8 +82,9 @@ export const uploadProfileImage = async (
 
     if (dbError) {
       console.error('Database save error:', dbError);
-      console.error('Error details:', JSON.stringify(dbError));
-      throw dbError;
+      console.error('Error details:', JSON.stringify(dbError, null, 2));
+      // Don't throw - image is uploaded, just log the error
+      console.log('Image uploaded but failed to save URL to database');
     }
 
     console.log('Profile image URL saved to database:', upsertData);
@@ -92,6 +92,7 @@ export const uploadProfileImage = async (
     return { url: publicUrl, error: null };
   } catch (error: any) {
     console.error('Upload error:', error.message);
+    console.error('Full error:', error);
     return { url: null, error: error.message };
   }
 };

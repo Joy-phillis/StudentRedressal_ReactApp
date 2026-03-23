@@ -37,20 +37,21 @@ export default function Profile() {
 
       setUploading(true)
 
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${user?.id}-${Date.now()}.${fileExt}`
-      const filePath = `profile-photos/${fileName}`
+      // Upload to Supabase Storage with consistent path
+      const filePath = `${user?.id}/profile.jpg`
 
       const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(filePath, file)
+        .from('profile-images')
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type,
+        })
 
       if (uploadError) throw uploadError
 
       // Get public URL
       const { data: urlData } = supabase.storage
-        .from('profile-photos')
+        .from('profile-images')
         .getPublicUrl(filePath)
 
       const imageUrl = urlData.publicUrl
