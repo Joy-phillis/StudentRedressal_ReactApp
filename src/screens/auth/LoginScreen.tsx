@@ -35,6 +35,11 @@ export default function LoginScreen({ setUserRole }: LoginScreenProps) {
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPasswordHint, setShowPasswordHint] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetError, setResetError] = useState('');
 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -168,6 +173,53 @@ const handleLogin = async () => {
   setLoading(false);
 };
 
+const handleForgotPassword = async () => {
+  setResetError('');
+  setResetMessage('');
+
+  const trimmedEmail = resetEmail.trim();
+
+  if (!trimmedEmail) {
+    setResetError('Email is required');
+    return;
+  }
+
+  if (!validateEmail(trimmedEmail)) {
+    setResetError('Enter a valid email address');
+    return;
+  }
+
+  setResetLoading(true);
+
+  try {
+    // Get the base URL for the reset page
+    // In production, this should be your Vercel URL
+    const siteUrl = 'https://student-redressal-reset.vercel.app';
+    
+    // For development, you can use localhost
+    // const siteUrl = 'http://localhost:5174';
+
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+      redirectTo: `${siteUrl}/reset-password`,
+    });
+
+    if (error) throw error;
+
+    setResetMessage('Password reset link sent! Check your email.');
+    
+    // Auto-close after 3 seconds
+    setTimeout(() => {
+      setShowForgotPassword(false);
+      setResetEmail('');
+      setResetMessage('');
+    }, 3000);
+  } catch (error: any) {
+    setResetError(error.message || 'Failed to send reset link. Please try again.');
+  } finally {
+    setResetLoading(false);
+  }
+};
+
   const isFormValid =
     validateEmail(email) &&
     validatePassword(password) &&
@@ -271,6 +323,13 @@ const handleLogin = async () => {
         </Animated.View>
         {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
+        {/* Forgot Password Link */}
+        <View style={styles.forgotPasswordContainer}>
+          <TouchableOpacity onPress={() => setShowForgotPassword(true)}>
+            <Text style={styles.forgotPasswordLink}>Forgot Password?</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Login Button */}
         <TouchableOpacity
           style={[
@@ -336,6 +395,69 @@ const handleLogin = async () => {
             <TouchableOpacity style={styles.closePasswordHintBtn} onPress={() => setShowPasswordHint(false)}>
               <Text style={styles.closePasswordHintText}>Got it!</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Forgot Password Modal */}
+      <Modal visible={showForgotPassword} animationType="fade" transparent onRequestClose={() => setShowForgotPassword(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.forgotPasswordModalCard}>
+            <View style={styles.forgotPasswordModalHeader}>
+              <Ionicons name="lock-closed-outline" size={40} color="#1E5F9E" />
+              <Text style={styles.forgotPasswordModalTitle}>Reset Password</Text>
+            </View>
+            
+            <Text style={styles.forgotPasswordModalSubtitle}>
+              Enter your email address and we'll send you a link to reset your password.
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <Ionicons name="mail-outline" size={20} color="#555" />
+              <TextInput
+                placeholder="Email Address"
+                placeholderTextColor="#999"
+                style={styles.input}
+                value={resetEmail}
+                onChangeText={(text) => {
+                  setResetEmail(text);
+                  if (resetError) setResetError('');
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            {resetError ? <Text style={styles.errorText}>{resetError}</Text> : null}
+            {resetMessage ? <Text style={styles.successText}>{resetMessage}</Text> : null}
+
+            <View style={styles.forgotPasswordActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowForgotPassword(false);
+                  setResetEmail('');
+                  setResetError('');
+                  setResetMessage('');
+                }}
+                disabled={resetLoading}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sendLinkButton, resetLoading && { opacity: 0.6 }]}
+                onPress={handleForgotPassword}
+                disabled={resetLoading}
+              >
+                {resetLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="send-outline" size={18} color="#fff" />
+                    <Text style={styles.sendLinkButtonText}>Send Link</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -500,6 +622,82 @@ const styles = StyleSheet.create({
   closePasswordHintText: {
     color: '#fff',
     fontWeight: '700',
+    fontSize: 15,
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginTop: 8,
+  },
+  forgotPasswordLink: {
+    color: '#1E5F9E',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  successText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 5,
+    fontWeight: '500',
+  },
+  forgotPasswordModalCard: {
+    width: '85%',
+    backgroundColor: '#fff',
+    padding: 24,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  forgotPasswordModalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  forgotPasswordModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F3057',
+    marginTop: 8,
+  },
+  forgotPasswordModalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  forgotPasswordActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E5F9E',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#1E5F9E',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  sendLinkButton: {
+    flex: 1,
+    backgroundColor: '#1E5F9E',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sendLinkButtonText: {
+    color: '#fff',
+    fontWeight: '600',
     fontSize: 15,
   },
 });
