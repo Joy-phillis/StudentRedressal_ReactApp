@@ -90,9 +90,12 @@ function App() {
     setEmailLoading(true)
 
     try {
-      const siteUrl = import.meta.env.PROD
-        ? 'https://student-redressal-reset.vercel.app'
-        : 'http://localhost:5174'
+      // Use environment variable or default to production URL
+      // For development: http://localhost:5174
+      // For production: Your Vercel URL (update below after deployment)
+      const siteUrl = window.location.hostname === 'localhost'
+        ? 'http://localhost:5174'
+        : 'https://student-redressal-reset.vercel.app'
 
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${siteUrl}/reset-password`,
