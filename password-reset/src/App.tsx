@@ -92,10 +92,10 @@ function App() {
     try {
       // Use environment variable or default to production URL
       // For development: http://localhost:5174
-      // For production: Your Vercel URL (update below after deployment)
+      // For production: Your Vercel URL
       const siteUrl = window.location.hostname === 'localhost'
         ? 'http://localhost:5174'
-        : 'https://student-redressal-reset.vercel.app'
+        : 'https://studentpassword.vercel.app'
 
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${siteUrl}/reset-password`,

@@ -193,8 +193,8 @@ const handleForgotPassword = async () => {
 
   try {
     // Get the base URL for the reset page
-    // In production, this should be your Vercel URL
-    const siteUrl = 'https://student-redressal-reset.vercel.app';
+    // Production URL on Vercel
+    const siteUrl = 'https://studentpassword.vercel.app';
     
     // For development, you can use localhost
     // const siteUrl = 'http://localhost:5174';
