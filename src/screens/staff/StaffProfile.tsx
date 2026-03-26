@@ -67,30 +67,41 @@ export default function StaffProfile() {
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        
+
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           Alert.alert('Error', 'User not authenticated');
           return;
         }
-        
+
         // Upload to Supabase Storage
-        Alert.alert('Uploading', 'Please wait...');
+        Alert.alert('Uploading', 'Please wait while we upload your photo...');
         const { url, error } = await uploadProfileImage(user.id, uri);
-        
+
         if (error) {
-          Alert.alert('Error', 'Upload failed: ' + error);
+          console.error('Upload failed:', error);
+          Alert.alert(
+            'Upload Failed', 
+            error.includes('Network') 
+              ? 'Could not connect to the server. Please check your internet connection and try again.\n\nIf the problem persists, contact support.'
+              : 'Upload failed: ' + error
+          );
           return;
         }
-        
+
         // Update profile context
         setProfile({ image: url });
         Alert.alert('Success', 'Profile photo updated and saved!');
       }
     } catch (error: any) {
       console.error('Upload error:', error);
-      Alert.alert('Error', 'Failed to upload photo: ' + error.message);
+      Alert.alert(
+        'Error', 
+        error.message?.includes('Network')
+          ? 'Network error. Please check your connection and try again.'
+          : 'Failed to upload photo: ' + error.message
+      );
     }
   };
 

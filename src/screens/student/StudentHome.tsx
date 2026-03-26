@@ -192,30 +192,42 @@ export default function StudentHome({ navigation }: any) {
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        
+
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           Alert.alert('Error', 'User not authenticated');
           return;
         }
-        
+
         // Upload to Supabase Storage and save URL to database
-        Alert.alert('Uploading', 'Please wait...');
-        const { url, error } = await uploadProfileImage(user.id, uri);
+        Alert.alert('Uploading', 'Please wait while we upload your photo...');
         
+        const { url, error } = await uploadProfileImage(user.id, uri);
+
         if (error) {
-          Alert.alert('Error', 'Upload failed: ' + error);
+          console.error('Upload failed:', error);
+          Alert.alert(
+            'Upload Failed', 
+            error.includes('Network') 
+              ? 'Could not connect to the server. Please check your internet connection and try again.\n\nIf the problem persists, contact support.'
+              : 'Upload failed: ' + error
+          );
           return;
         }
-        
+
         // Update profile context with the public URL
         setProfile({ image: url });
         Alert.alert('Success', 'Profile photo updated successfully!');
       }
     } catch (error: any) {
       console.error('Upload error:', error);
-      Alert.alert('Error', 'Could not upload photo: ' + error.message);
+      Alert.alert(
+        'Error', 
+        error.message?.includes('Network')
+          ? 'Network error. Please check your connection and try again.'
+          : 'Could not upload photo: ' + error.message
+      );
     }
   };
 
@@ -252,28 +264,28 @@ export default function StudentHome({ navigation }: any) {
       }
       
       // Fetch profile image from profile_images table
-      const { data: imageData } = await supabase
+      const { data: imageData, error: imageError } = await supabase
         .from('profile_images')
         .select('image_url')
         .eq('user_id', user.id)
         .single();
-      
+
       if (imageData?.image_url) {
         console.log('StudentHome: Profile image URL:', imageData.image_url);
-        setProfile(prev => ({ ...prev, image: imageData.image_url }));
+        setProfile({ image: imageData.image_url });
       }
-      
+
       // Fetch registration number from complaints table
-      const { data: complaintData } = await supabase
+      const { data: complaintData, error: complaintError } = await supabase
         .from('complaints')
         .select('registration_number')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-      
-      if (complaintData) {
-        setProfile(prev => ({ ...prev, registration: complaintData.registration_number }));
+
+      if (complaintData?.registration_number) {
+        setProfile({ registration: complaintData.registration_number });
       }
     } catch (error) {
       console.error('Error fetching student profile:', error);

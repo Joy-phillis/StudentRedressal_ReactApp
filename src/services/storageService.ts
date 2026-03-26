@@ -14,50 +14,39 @@ export const uploadProfileImage = async (
     console.log('Starting upload for user:', userId);
     console.log('Image URI:', imageUri);
 
-    // For React Native, we need to handle the URI differently
-    const isLocalFile = imageUri.startsWith('file://') || imageUri.startsWith('/');
-
-    let blob: Blob;
-    if (isLocalFile) {
-      // For local files, use XMLHttpRequest
-      blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = function() {
-          resolve(xhr.response);
-        };
-        xhr.onerror = function(e) {
-          console.log('XHR error:', e);
-          reject(new Error('Failed to load image'));
-        };
-        xhr.responseType = 'blob';
-        xhr.open('GET', imageUri, true);
-        xhr.send(null);
-      });
-    } else {
-      // For remote URIs, use fetch
-      const response = await fetch(imageUri);
-      blob = await response.blob();
-    }
-
-    console.log('Blob created:', blob.type, blob.size);
-
     // Generate consistent filename: userId/profile.jpg
     const fileName = `${userId}/profile.jpg`;
 
     console.log('Uploading to:', fileName);
 
+    // Create a file object from the URI for React Native
+    // React Native can handle file:// URIs directly in FormData
+    const file: any = {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'profile.jpg',
+    };
+
     // Upload to Supabase Storage
     const { data, error: uploadError } = await supabase.storage
       .from('profile-images')
-      .upload(fileName, blob, {
+      .upload(fileName, file, {
         cacheControl: '3600',
         upsert: true,
-        contentType: blob.type,
+        contentType: 'image/jpeg',
       });
 
     if (uploadError) {
       console.error('Upload error details:', JSON.stringify(uploadError, null, 2));
-      throw new Error(`Storage upload failed: ${uploadError.message}`);
+      console.error('Upload error message:', uploadError.message);
+      console.error('Upload error status:', (uploadError as any).status);
+      
+      // Provide helpful error message
+      let errorMsg = uploadError.message;
+      if (errorMsg.includes('Network request failed')) {
+        errorMsg = 'Network error. Please check your internet connection and try again. If the problem persists, the storage bucket may not be configured properly.';
+      }
+      throw new Error(errorMsg);
     }
 
     console.log('Upload successful:', data);

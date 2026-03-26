@@ -335,11 +335,18 @@ export default function StaffHome({ navigation }: any) {
         console.log('User ID:', user.id);
 
         // Upload to Supabase Storage and save URL to database
+        Alert.alert('Uploading', 'Please wait while we upload your photo...');
+        
         const { url, error } = await uploadProfileImage(user.id, imageUri);
 
         if (error) {
           console.error('Upload failed:', error);
-          Alert.alert('Error', 'Upload failed: ' + error);
+          Alert.alert(
+            'Upload Failed', 
+            error.includes('Network') 
+              ? 'Could not connect to the server. Please check your internet connection and try again.\n\nIf the problem persists, contact support.'
+              : 'Upload failed: ' + error
+          );
           return;
         }
 
@@ -347,9 +354,14 @@ export default function StaffHome({ navigation }: any) {
         setProfileImage(url);
         Alert.alert('Success', 'Profile image updated!');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      Alert.alert('Error', 'Could not upload image');
+      Alert.alert(
+        'Error', 
+        error.message?.includes('Network')
+          ? 'Network error. Please check your connection and try again.'
+          : 'Could not upload image: ' + error.message
+      );
     }
   };
 

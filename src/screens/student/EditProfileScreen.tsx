@@ -46,16 +46,16 @@ export default function EditProfileScreen() {
   const navigation = useNavigation<any>();
   const { profile, setProfile } = useContext(ProfileContext);
 
+  // Start with empty fields - user fills from scratch
   const [profileData, setProfileData] = useState<ProfileData>({
-    name: profile.name,
-    phone: profile.phone,
-    location: profile.location,
-    dateOfBirth: profile.dateOfBirth,
-    guardianName: profile.guardianName,
-    guardianPhone: profile.guardianPhone,
+    name: '',
+    phone: '',
+    location: '',
+    dateOfBirth: '',
+    guardianName: '',
+    guardianPhone: '',
   });
 
-  const [originalData] = useState<ProfileData>({ ...profileData });
   const [isModified, setIsModified] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -79,7 +79,9 @@ export default function EditProfileScreen() {
   const handleInputChange = (field: keyof ProfileData, value: string) => {
     const newData = { ...profileData, [field]: value };
     setProfileData(newData);
-    setIsModified(JSON.stringify(newData) !== JSON.stringify(originalData));
+    // Check if any field has been modified
+    const hasChanges = Object.values(newData).some(val => val.trim() !== '');
+    setIsModified(hasChanges);
   };
 
   const handleSave = () => {
@@ -164,7 +166,7 @@ export default function EditProfileScreen() {
             style={styles.fieldInput}
             placeholder={placeholder}
             placeholderTextColor={COLORS.textLight}
-            value={value}
+            value={value || undefined}
             onChangeText={(text) => handleInputChange(field, text)}
             keyboardType={keyboardType}
             editable={!isSaving}

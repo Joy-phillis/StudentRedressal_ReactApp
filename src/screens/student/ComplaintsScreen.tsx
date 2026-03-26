@@ -60,7 +60,7 @@ export default function ComplaintsScreen() {
   const [year, setYear] = useState('1');
   const [course, setCourse] = useState('');
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Library');
+  const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [urgency, setUrgency] = useState('Normal');
   const [errors, setErrors] = useState<any>({});
@@ -73,6 +73,32 @@ export default function ComplaintsScreen() {
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [hasRated, setHasRated] = useState(false);
+  
+  // Modal states
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [urgencyModalVisible, setUrgencyModalVisible] = useState(false);
+  const [genderModalVisible, setGenderModalVisible] = useState(false);
+  const [yearModalVisible, setYearModalVisible] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
+  
+  const urgencyOptions = [
+    { value: 'Normal', label: 'Normal', icon: 'information-circle-outline', color: '#4CAF50', description: 'Standard processing time' },
+    { value: 'High', label: 'High', icon: 'warning-outline', color: '#FF9800', description: 'Requires prompt attention' },
+    { value: 'Critical', label: 'Critical', icon: 'alert-circle-outline', color: '#FF3B30', description: 'Urgent action required' },
+  ];
+
+  const genderOptions = [
+    { value: 'Male', label: 'Male', icon: 'gender-male', color: '#2196F3' },
+    { value: 'Female', label: 'Female', icon: 'gender-female', color: '#E91E63' },
+    { value: 'Other', label: 'Other', icon: 'gender-male-female', color: '#9C27B0' },
+  ];
+
+  const yearOptions = [
+    { value: '1', label: '1st Year', icon: 'numeric-1-circle-outline', description: 'First year of study' },
+    { value: '2', label: '2nd Year', icon: 'numeric-2-circle-outline', description: 'Second year of study' },
+    { value: '3', label: '3rd Year', icon: 'numeric-3-circle-outline', description: 'Third year of study' },
+    { value: '4', label: '4th Year', icon: 'numeric-4-circle-outline', description: 'Fourth year of study' },
+  ];
 
   // Animations
   const headerScale = useSharedValue(0.8);
@@ -236,7 +262,7 @@ const handleSubmit = async () => {
     setYear('1');
     setCourse('');
     setTitle('');
-    setCategory('Library');
+    setCategory('');
     setDescription('');
     setUrgency('Normal');
   } catch (err: any) {
@@ -490,38 +516,42 @@ const handleSubmit = async () => {
                 )}
               </View>
 
-              {/* Gender and Year Row */}
+              {/* Gender and Year of Study Row */}
               <View style={styles.twoColumnRow}>
                 <View style={styles.column}>
                   <Text style={styles.label}>Gender</Text>
-                  <View style={styles.pickerContainer}>
+                  <TouchableOpacity
+                    style={styles.pickerContainer}
+                    onPress={() => setGenderModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="male-female-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
-                    <Picker
-                      selectedValue={gender}
-                      style={styles.picker}
-                      onValueChange={setGender}
-                    >
-                      <Picker.Item label="Male" value="Male" />
-                      <Picker.Item label="Female" value="Female" />
-                      <Picker.Item label="Other" value="Other" />
-                    </Picker>
-                  </View>
+                    <View style={styles.pickerValueContainer}>
+                      <Text style={[
+                        styles.pickerValue,
+                        { color: gender === 'Male' ? '#2196F3' : gender === 'Female' ? '#E91E63' : '#9C27B0' }
+                      ]}>
+                        {gender}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.column}>
-                  <Text style={styles.label}>Year</Text>
-                  <View style={styles.pickerContainer}>
+                  <Text style={styles.label}>Year of Study</Text>
+                  <TouchableOpacity
+                    style={styles.pickerContainer}
+                    onPress={() => setYearModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="school-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
-                    <Picker
-                      selectedValue={year}
-                      style={styles.picker}
-                      onValueChange={setYear}
-                    >
-                      <Picker.Item label="1st Year" value="1" />
-                      <Picker.Item label="2nd Year" value="2" />
-                      <Picker.Item label="3rd Year" value="3" />
-                      <Picker.Item label="4th Year" value="4" />
-                    </Picker>
-                  </View>
+                    <View style={styles.pickerValueContainer}>
+                      <Text style={styles.pickerValue}>
+                        {year === '1' ? '1st Year' : year === '2' ? '2nd Year' : year === '3' ? '3rd Year' : '4th Year'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -583,39 +613,49 @@ const handleSubmit = async () => {
               <View style={styles.twoColumnRow}>
                 <View style={styles.column}>
                   <Text style={styles.label}>Category</Text>
-                  <View style={styles.pickerContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.pickerContainer,
+                      errors.category && styles.inputError
+                    ]}
+                    onPress={() => {
+                      setCategorySearch(category);
+                      setCategoryModalVisible(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
                     <MaterialCommunityIcons name="format-list-bulleted" size={18} color={COLORS.primary} style={styles.inputIcon} />
-                    <Picker
-                      selectedValue={category}
-                      style={styles.picker}
-                      onValueChange={setCategory}
-                    >
-                      <Picker.Item label="Library" value="Library" />
-                      <Picker.Item label="SCIT Department" value="SCIT Department" />
-                      <Picker.Item label="SESS Department" value="SESS Department" />
-                      <Picker.Item label="Hostel" value="Hostel" />
-                      <Picker.Item label="Finance" value="Finance" />
-                      <Picker.Item label="Security" value="Security" />
-                      <Picker.Item label="Mess" value="Mess" />
-                      <Picker.Item label="Marks" value="Marks" />
-                      <Picker.Item label="Other" value="Other" />
-                    </Picker>
-                  </View>
+                    <View style={styles.pickerValueContainer}>
+                      <Text style={category ? styles.pickerValue : styles.pickerPlaceholder}>
+                        {category || 'Select category'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
+                  {errors.category && (
+                    <Text style={styles.errorText}>
+                      <Ionicons name="alert-circle" size={12} color={COLORS.error} /> {errors.category}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.column}>
                   <Text style={styles.label}>Urgency</Text>
-                  <View style={styles.pickerContainer}>
+                  <TouchableOpacity
+                    style={styles.pickerContainer}
+                    onPress={() => setUrgencyModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="alert-outline" size={18} color={COLORS.primary} style={styles.inputIcon} />
-                    <Picker
-                      selectedValue={urgency}
-                      style={styles.picker}
-                      onValueChange={setUrgency}
-                    >
-                      <Picker.Item label="Normal" value="Normal" />
-                      <Picker.Item label="High" value="High" />
-                      <Picker.Item label="Critical" value="Critical" />
-                    </Picker>
-                  </View>
+                    <View style={styles.pickerValueContainer}>
+                      <Text style={[
+                        styles.pickerValue,
+                        { color: urgency === 'Critical' ? '#FF3B30' : urgency === 'High' ? '#FF9800' : '#4CAF50' }
+                      ]}>
+                        {urgency}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -785,6 +825,312 @@ const handleSubmit = async () => {
 
             <TouchableOpacity style={styles.closeViewBtn} onPress={closeViewModal}>
               <Text style={styles.closeViewText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Category Modal */}
+      <Modal
+        visible={categoryModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCategoryModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.categoryModalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Category</Text>
+              <TouchableOpacity onPress={() => setCategoryModalVisible(false)}>
+                <Ionicons name="close-outline" size={28} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Ionicons name="search-outline" size={20} color={COLORS.textLight} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Type to search or create category..."
+                placeholderTextColor={COLORS.textLight}
+                value={categorySearch}
+                onChangeText={setCategorySearch}
+                autoFocus
+              />
+              {categorySearch.length > 0 && (
+                <TouchableOpacity onPress={() => setCategorySearch('')}>
+                  <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text style={styles.modalSubtitle}>Choose from suggestions or type your own</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.categoryList}>
+              {['Library', 'SCIT Department', 'SESS Department', 'Hostel', 'Finance', 'Security', 'Mess', 'Marks']
+                .filter(cat => cat.toLowerCase().includes(categorySearch.toLowerCase()))
+                .map((cat, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.categoryOption,
+                      category === cat && styles.categoryOptionSelected
+                    ]}
+                    onPress={() => {
+                      setCategory(cat);
+                      setCategoryModalVisible(false);
+                      setErrors({ ...errors, category: undefined });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        cat === 'Library' ? 'book-open-page-variant' :
+                        cat === 'Hostel' ? 'bed' :
+                        cat === 'Finance' ? 'cash-multiple' :
+                        cat === 'Security' ? 'shield-account' :
+                        cat === 'Mess' ? 'silverware-fork-knife' :
+                        cat === 'Marks' ? 'clipboard-text' :
+                        cat === 'SCIT Department' || cat === 'SESS Department' ? 'school' :
+                        'domain'
+                      }
+                      size={20}
+                      color={category === cat ? COLORS.primary : COLORS.textLight}
+                    />
+                    <Text style={[
+                      styles.categoryOptionText,
+                      category === cat && styles.categoryOptionTextSelected
+                    ]}>
+                      {cat}
+                    </Text>
+                    {category === cat && (
+                      <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+              {categorySearch.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.categoryOption, styles.categoryOptionCustom]}
+                  onPress={() => {
+                    setCategory(categorySearch);
+                    setCategoryModalVisible(false);
+                    setErrors({ ...errors, category: undefined });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={COLORS.accent} />
+                  <Text style={styles.categoryOptionTextCustom}>
+                    Use "{categorySearch}" as category
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setCategoryModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Urgency Modal */}
+      <Modal
+        visible={urgencyModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setUrgencyModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.urgencyModalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Urgency Level</Text>
+              <TouchableOpacity onPress={() => setUrgencyModalVisible(false)}>
+                <Ionicons name="close-outline" size={28} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>How urgent is this complaint?</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {urgencyOptions.map((option, idx) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.urgencyOption,
+                    urgency === option.value && { backgroundColor: option.color + '10', borderColor: option.color }
+                  ]}
+                  onPress={() => {
+                    setUrgency(option.value);
+                    setUrgencyModalVisible(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.urgencyIconContainer, { backgroundColor: option.color + '20' }]}>
+                    <Ionicons name={option.icon as any} size={24} color={option.color} />
+                  </View>
+                  <View style={styles.urgencyContent}>
+                    <Text style={[
+                      styles.urgencyLabel,
+                      { color: urgency === option.value ? option.color : COLORS.text }
+                    ]}>
+                      {option.label}
+                    </Text>
+                    <Text style={styles.urgencyDescription}>{option.description}</Text>
+                  </View>
+                  <View style={[
+                    styles.urgencyRadio,
+                    { borderColor: option.color },
+                    urgency === option.value && { backgroundColor: option.color }
+                  ]}>
+                    {urgency === option.value && (
+                      <Ionicons name="checkmark" size={16} color="#fff" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setUrgencyModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Gender Modal */}
+      <Modal
+        visible={genderModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setGenderModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.genderModalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Gender</Text>
+              <TouchableOpacity onPress={() => setGenderModalVisible(false)}>
+                <Ionicons name="close-outline" size={28} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>Choose your gender identity</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {genderOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.genderOption,
+                    gender === option.value && { backgroundColor: option.color + '10', borderColor: option.color }
+                  ]}
+                  onPress={() => {
+                    setGender(option.value);
+                    setGenderModalVisible(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.genderIconContainer, { backgroundColor: option.color + '20' }]}>
+                    <MaterialCommunityIcons name={option.icon as any} size={28} color={option.color} />
+                  </View>
+                  <View style={styles.genderContent}>
+                    <Text style={[
+                      styles.genderLabel,
+                      { color: gender === option.value ? option.color : COLORS.text }
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.genderRadio,
+                    { borderColor: option.color },
+                    gender === option.value && { backgroundColor: option.color }
+                  ]}>
+                    {gender === option.value && (
+                      <Ionicons name="checkmark" size={16} color="#fff" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setGenderModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Year of Study Modal */}
+      <Modal
+        visible={yearModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setYearModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.yearModalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Year of Study</Text>
+              <TouchableOpacity onPress={() => setYearModalVisible(false)}>
+                <Ionicons name="close-outline" size={28} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>Select your current year of study</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {yearOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.yearOption,
+                    year === option.value && { backgroundColor: COLORS.primary + '10', borderColor: COLORS.primary }
+                  ]}
+                  onPress={() => {
+                    setYear(option.value);
+                    setYearModalVisible(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.yearIconContainer, { backgroundColor: COLORS.primary + '20' }]}>
+                    <MaterialCommunityIcons name={option.icon as any} size={24} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.yearContent}>
+                    <Text style={[
+                      styles.yearLabel,
+                      { color: year === option.value ? COLORS.primary : COLORS.text }
+                    ]}>
+                      {option.label}
+                    </Text>
+                    <Text style={styles.yearDescription}>{option.description}</Text>
+                  </View>
+                  <View style={[
+                    styles.yearRadio,
+                    { borderColor: COLORS.primary },
+                    year === option.value && { backgroundColor: COLORS.primary }
+                  ]}>
+                    {year === option.value && (
+                      <Ionicons name="checkmark" size={16} color="#fff" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setYearModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1100,4 +1446,260 @@ const styles = StyleSheet.create({
   submitRatingText: { color: COLORS.surface, fontSize: 15, fontWeight: '700' },
   ratedSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border, alignItems: 'center', gap: 8 },
   ratedText: { fontSize: 14, fontWeight: '600', color: COLORS.success, textAlign: 'center' },
+
+  // Picker Styles
+  pickerValueContainer: { flex: 1 },
+  pickerValue: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
+  pickerPlaceholder: { fontSize: 15, color: COLORS.textLight, fontWeight: '500' },
+
+  // Category Modal Styles
+  categoryModalCard: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 24,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: 0.3,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  searchIcon: { marginRight: 10 },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  categoryList: {
+    maxHeight: 300,
+    marginVertical: 8,
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  categoryOptionSelected: {
+    backgroundColor: COLORS.primary + '10',
+    borderColor: COLORS.primary,
+  },
+  categoryOptionText: {
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '500',
+    marginLeft: 12,
+    flex: 1,
+  },
+  categoryOptionTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  categoryOptionCustom: {
+    backgroundColor: COLORS.accent + '10',
+    borderColor: COLORS.accent,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  categoryOptionTextCustom: {
+    fontSize: 14,
+    color: COLORS.accent,
+    fontWeight: '600',
+    marginLeft: 12,
+    flex: 1,
+  },
+  modalCloseButton: {
+    marginTop: 16,
+    paddingVertical: 14,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+
+  // Urgency Modal Styles
+  urgencyModalCard: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 24,
+    maxHeight: '70%',
+  },
+  urgencyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+  urgencyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  urgencyContent: {
+    flex: 1,
+  },
+  urgencyLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  urgencyDescription: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    fontWeight: '500',
+  },
+  urgencyRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Gender Modal Styles
+  genderModalCard: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 24,
+    maxHeight: '60%',
+  },
+  genderOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+  genderIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  genderContent: {
+    flex: 1,
+  },
+  genderLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  genderRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Year of Study Modal Styles
+  yearModalCard: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 24,
+    maxHeight: '65%',
+  },
+  yearOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+  yearIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  yearContent: {
+    flex: 1,
+  },
+  yearLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  yearDescription: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    fontWeight: '500',
+  },
+  yearRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
